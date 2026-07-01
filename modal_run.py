@@ -73,7 +73,12 @@ image = (
 app = modal.App("le-fat-chaton-train")
 ckpt_vol = modal.Volume.from_name("le-fat-chaton-ckpt", create_if_missing=True)
 
-GPU = os.environ.get("CHATON_GPU", "A100-40GB")
+# Default GPU = L4 (24GB, ~$0.80/hr). The cost-efficiency sweet spot for the
+# smol-fat 240M MoE: 8GB more headroom than a T4 (fits block 1024/micro 8 with
+# compile ON), ~2.6x cheaper than an A100-40GB which a 240M model can't use.
+# Override per run: CHATON_GPU=L4 | A10G | T4 | A100-40GB | A100-80GB.
+#  -> smol-fat proof: L4 (default).  -> fat 10.25B pretrain: A100-40GB or 80GB.
+GPU = os.environ.get("CHATON_GPU", "L4")
 PROFILE = os.environ.get("CHATON_PROFILE", "smol-fat")
 MAX_ITERS = os.environ.get("CHATON_MAX_ITERS", "1000")
 
@@ -104,8 +109,15 @@ def train():
     env.update({
         "CHATON_PROFILE": PROFILE,
         "CHATON_MAX_ITERS": MAX_ITERS,
-        "CHATON_MICRO_BATCH": "16",
-        "CHATON_GRAD_ACCUM": "4",        # effective batch = 64
+        # Memory settings scale with the GPU. Defaults below suit the L4 24GB
+        # default (block 1024 / micro 8 / accum 8 = eff batch 64, compile ON —
+        # the healthy config, NOT the squeezed T4 one). For a T4, override at
+        # launch with CHATON_BLOCK_SIZE=512 CHATON_MICRO_BATCH=4 CHATON_GRAD_ACCUM=16
+        # CHATON_COMPILE=0. For A100-40GB do block 2048 / micro 16 / accum 4.
+        "CHATON_BLOCK_SIZE": os.environ.get("CHATON_BLOCK_SIZE", "1024"),
+        "CHATON_MICRO_BATCH": os.environ.get("CHATON_MICRO_BATCH", "8"),
+        "CHATON_GRAD_ACCUM": os.environ.get("CHATON_GRAD_ACCUM", "8"),  # eff batch 64
+        "CHATON_COMPILE": os.environ.get("CHATON_COMPILE", "1"),        # ON for L4+
         "CHATON_CKPT_INTERVAL": "250",
         "CHATON_CKPT_PATH": "/ckpt/checkpoint.pt",  # persistent Modal volume (survives reaper)
         "CHATON_RESUME": "1",            # pull latest ckpt from Hub if present
