@@ -1,0 +1,11 @@
+.claude
+__pycache__
+
+# generated model weights + token memmaps (rebuild on the VM)
+*.pt
+*.bin
+corpus_sample.txt
+custom_bpe*
+
+# old toy data
+training-data.json
