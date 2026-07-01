@@ -1,0 +1,30 @@
+from tokenizer import decode, encode, VOCAB_SIZE
+import torch
+from model import GPT
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load the model ONCE, before the loop. (Before it was reloading every message!)
+model = GPT().to(device)
+model.load_state_dict(torch.load("model.pt"))
+model.eval()
+
+print("Model loaded. Type 'quit' to exit.\n")
+
+while True:
+    prompt = input("prompt: ")
+    if prompt.strip().lower() in ("quit", "exit"):
+        break
+    if not prompt.strip():
+        continue
+
+    # Encode the prompt into a (1, len) tensor of token IDs on the GPU.
+    idx = torch.tensor([encode(prompt)], dtype=torch.long, device=device)
+
+    # Generate continuation. Temperature: low=safe/repetitive, high=wild.
+    # top_k=50 + KV cache (in model.generate) = faster, less repetitive.
+    out = model.generate(idx, max_new_tokens=100, temperature=0.8, top_k=50)
+
+    # decode turns the full token sequence (prompt + new) back into text.
+    print(decode(out[0].tolist()))
+    print("-" * 40)
