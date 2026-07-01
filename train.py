@@ -33,17 +33,37 @@ scaler = torch.cuda.amp.GradScaler(enabled=(device == "cuda"))
 
 # --- VM-hopping: optionally pull the latest checkpoint from HF Hub and resume.
 #     Set CHATON_HF_REPO + HF_TOKEN in the env to use this. If a local ckpt
-#     exists, load that instead. start_step = where we resume from. ---
+#     exists, load that instead. start_step = where we resume from.
+#     We check the checkpoint's saved config (n_embd/n_layer/use_moe/...) against
+#     the current profile BEFORE loading — if they don't match (e.g. a stale dev
+#     checkpoint left on the Hub from a different profile), skip cleanly instead
+#     of throwing a wall of state_dict errors. This is the VM-hopping robustness
+#     fix: a checkpoint from a DIFFERENT architecture is not resumable. ---
 start_step = 0
 if os.environ.get("CHATON_RESUME", "0") == "1":
     try:
         if os.environ.get("CHATON_HF_REPO"):
             ckpt.pull_hub()   # download latest from HF Hub
         if os.path.exists(ckpt.CKPT_PATH):
-            start_step = ckpt.load_checkpoint(ckpt.CKPT_PATH, model, optimizer, scaler, device)
-            print(f"[train] resuming from step {start_step}")
+            # peek at the saved config snapshot before loading the heavy state
+            ck_peek = torch.load(ckpt.CKPT_PATH, map_location="cpu", weights_only=False)
+            saved_cfg = ck_peek.get("config", {}) if isinstance(ck_peek, dict) else {}
+            # the architecture-defining fields that must match to be resumable
+            _ARCH_KEYS = ("n_embd", "n_layer", "n_head", "n_kv_head",
+                          "vocab_size", "use_moe", "n_expert", "n_shared_expert",
+                          "mlp_type")
+            mism = {k: (saved_cfg.get(k), getattr(cfg, k)) for k in _ARCH_KEYS
+                    if saved_cfg.get(k) != getattr(cfg, k, None) and k in saved_cfg}
+            if saved_cfg and mism:
+                print(f"[train] checkpoint is from a different architecture "
+                      f"({len(mism)} field(s) mismatch: "
+                      f"{ {k: f'{a}->{b}' for k,(a,b) in list(mism.items())[:4]} }); "
+                      f"not resumable -> starting fresh at step 0")
+            else:
+                start_step = ckpt.load_checkpoint(ckpt.CKPT_PATH, model, optimizer, scaler, device)
+                print(f"[train] resuming from step {start_step}")
     except Exception as e:
-        print(f"[train] resume attempted but failed ({e}); starting fresh at step 0")
+        print(f"[train] resume attempted but failed ({str(e)[:200]}...); starting fresh at step 0")
 
 ckpt_interval = int(os.environ.get("CHATON_CKPT_INTERVAL", "500"))  # save every N outer steps
 
