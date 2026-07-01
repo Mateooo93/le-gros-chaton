@@ -5,13 +5,22 @@ import math
 import torch
 from model import GPT
 import config as cfg
-# NOTE: imports data2 (streaming memmap pipeline) if present, else falls back to data.py.
-try:
-    from data2 import get_batch
-    _DATA = "data2 (streaming memmap)"
-except Exception:
-    from data import get_batch
-    _DATA = "data.py (fallback)"
+import checkpoint as ckpt
+# --- data source: wikitext by default, CODE for the fat coding pretrain.
+#     CHATON_DATA=wikitext (default) -> data2.py (streaming memmap, wikitext-2/103)
+#     CHATON_DATA=code              -> data_code.py (smollm-corpus/stack-v2/starcoderdata)
+#     Both expose get_batch(split, batch_size, block_size) so the swap is clean. ---
+_DATA_CHOICE = os.environ.get("CHATON_DATA", "wikitext").lower()
+if _DATA_CHOICE == "code":
+    from data_code import get_batch
+    _DATA = "data_code (streaming code corpus)"
+else:
+    try:
+        from data2 import get_batch
+        _DATA = "data2 (streaming memmap wikitext)"
+    except Exception:
+        from data import get_batch
+        _DATA = "data.py (fallback wikitext)"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using device:", device, "| data:", _DATA)
@@ -21,6 +30,22 @@ model = torch.compile(model)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr_max)
 scaler = torch.cuda.amp.GradScaler(enabled=(device == "cuda"))
+
+# --- VM-hopping: optionally pull the latest checkpoint from HF Hub and resume.
+#     Set CHATON_HF_REPO + HF_TOKEN in the env to use this. If a local ckpt
+#     exists, load that instead. start_step = where we resume from. ---
+start_step = 0
+if os.environ.get("CHATON_RESUME", "0") == "1":
+    try:
+        if os.environ.get("CHATON_HF_REPO"):
+            ckpt.pull_hub()   # download latest from HF Hub
+        if os.path.exists(ckpt.CKPT_PATH):
+            start_step = ckpt.load_checkpoint(ckpt.CKPT_PATH, model, optimizer, scaler, device)
+            print(f"[train] resuming from step {start_step}")
+    except Exception as e:
+        print(f"[train] resume attempted but failed ({e}); starting fresh at step 0")
+
+ckpt_interval = int(os.environ.get("CHATON_CKPT_INTERVAL", "500"))  # save every N outer steps
 
 
 def get_lr(step):
@@ -53,7 +78,7 @@ def estimate_loss(eval_iters=None):
 # 4. The training loop with GRADIENT ACCUMULATION.
 #    We run `grad_accum` forward/backward passes summing (scaled) gradients,
 #    then ONE optimizer step. Effective batch = micro_batch * grad_accum.
-for step in range(cfg.max_iters):
+for step in range(start_step, cfg.max_iters):
     # set the LR for this step (warmup + cosine)
     lr = get_lr(step)
     for pg in optimizer.param_groups:
@@ -79,6 +104,16 @@ for step in range(cfg.max_iters):
     if step % cfg.eval_interval == 0:
         losses = estimate_loss()
         print(f"step {step:4d}  lr {lr:.2e}  train loss {losses['train']:.4f}  val loss {losses['val']:.4f}")
+
+    # --- periodic checkpoint + push to HF Hub (VM-hopping). Saves every
+    #     ckpt_interval outer steps so a disconnect loses at most that much. ---
+    if (step + 1) % ckpt_interval == 0:
+        ckpt.save_checkpoint(ckpt.CKPT_PATH, model, optimizer, step + 1, scaler)
+        if os.environ.get("CHATON_HF_REPO"):
+            try:
+                ckpt.push_hub()
+            except Exception as e:
+                print(f"[train] hub push failed ({e}); local ckpt still saved")
 
 model_to_save = model._orig_mod if hasattr(model, "_orig_mod") else model
 torch.save(model_to_save.state_dict(), "model.pt")
