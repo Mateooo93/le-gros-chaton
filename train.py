@@ -26,7 +26,12 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Using device:", device, "| data:", _DATA)
 
 model = GPT().to(device)
-model = torch.compile(model)
+# torch.compile optional: great on A100s, but on a T4 its autotune buffers eat
+# scarce memory and the compile+autotune is slow. CHATON_COMPILE=0 to disable.
+if os.environ.get("CHATON_COMPILE", "1") == "1":
+    model = torch.compile(model)
+else:
+    print("[train] torch.compile DISABLED (CHATON_COMPILE=0)")
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr_max)
 scaler = torch.cuda.amp.GradScaler(enabled=(device == "cuda"))

@@ -66,6 +66,12 @@ micro_batch  = int(_os.environ.get("CHATON_MICRO_BATCH", "8"))
 grad_accum   = int(_os.environ.get("CHATON_GRAD_ACCUM", "4"))
 batch_size   = micro_batch * grad_accum
 
+# block_size can be shrunk per-VM to fit memory (the profile default is the
+# max; smaller = fewer activations). Env-override so a tight T4 can drop to 1024
+# without editing profiles.
+if _os.environ.get("CHATON_BLOCK_SIZE"):
+    block_size = int(_os.environ["CHATON_BLOCK_SIZE"])
+
 lr_max       = float(_os.environ.get("CHATON_LR_MAX", "3e-4"))
 lr_min       = 3e-5
 warmup_iters = int(_os.environ.get("CHATON_WARMUP", "300"))
