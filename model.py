@@ -65,24 +65,39 @@ class CausalSelfAttention(nn.Module):
     def __init__(self):
         super().__init__()
         assert cfg.n_embd % cfg.n_head == 0, "n_embd must be divisible by n_head"
-        self.c_attn = nn.Linear(cfg.n_embd, 3 * cfg.n_embd, bias=False)
-        self.c_proj = nn.Linear(cfg.n_embd, cfg.n_embd, bias=False)
+        assert cfg.n_head % cfg.n_kv_head == 0, "n_head must be a multiple of n_kv_head"
         self.n_head = cfg.n_head
+        self.n_kv_head = cfg.n_kv_head
         self.head_dim = cfg.n_embd // cfg.n_head
+        # Grouped-Query Attention: Q has all n_head, but K/V only have n_kv_head
+        # (the Q heads are grouped and share a KV head). Fewer KV params + a
+        # smaller KV cache -> cheaper long-context decode (agent harness). When
+        # n_kv_head == n_head this is plain MHA (identical to the old behavior).
+        kv_dim = self.n_kv_head * self.head_dim
+        self.c_q = nn.Linear(cfg.n_embd, cfg.n_embd, bias=False)
+        self.c_kv = nn.Linear(cfg.n_embd, 2 * kv_dim, bias=False)
+        self.c_proj = nn.Linear(cfg.n_embd, cfg.n_embd, bias=False)
 
     def forward(self, x, rope_cos=None, rope_sin=None, kv_cache=None, use_cache=False):
         B, T, C = x.shape
 
-        qkv = self.c_attn(x)                       # (B, T, 3*C)
-        q, k, v = qkv.split(cfg.n_embd, dim=2)     # each (B, T, C)
+        q = self.c_q(x)                                  # (B, T, C)
+        k, v = self.c_kv(x).split(self.n_kv_head * self.head_dim, dim=2)
 
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
-        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
-        v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
 
         # apply rotary position embedding to q and k (NOT v)
         if rope_cos is not None:
             q, k = _apply_rope(q, k, rope_cos, rope_sin)
+
+        # GQA: replicate each KV head across the Q heads that share it so the
+        # matmul shapes line up for SDPA. n_head // n_kv_head = group size.
+        if self.n_kv_head != self.n_head:
+            rep = self.n_head // self.n_kv_head
+            k = k.repeat_interleave(rep, dim=1)
+            v = v.repeat_interleave(rep, dim=1)
 
         # --- KV cache: on decode steps we only get the NEW token (T=1).
         #     Append its k/v to the cached past k/v and attend over all of it. ---
@@ -107,18 +122,106 @@ class CausalSelfAttention(nn.Module):
 
 # ---------------------------------------------------------------------------
 # 2. MLP — the "thinking" layer.
+#    Two options (mlp_type in config):
+#      "gelu"   -> classic GPT-2: Linear -> GELU -> Linear (4x expansion)
+#      "swiglu" -> SwiGLU gated MLP (Llama/Qwen standard): two up-projections,
+#                  SiLU(x.w_gate) * x.w_up, then down-projection. The gate lets
+#                  the layer select which features to pass -> better per-param
+#                  than GELU. Hidden width scaled 2/3 so it has ~the same param
+#                  count as the GELU version (standard Llama sizing).
 # ---------------------------------------------------------------------------
 class MLP(nn.Module):
     def __init__(self):
         super().__init__()
-        self.c_fc = nn.Linear(cfg.n_embd, 4 * cfg.n_embd)
-        self.c_proj = nn.Linear(4 * cfg.n_embd, cfg.n_embd)
+        self.mlp_type = cfg.mlp_type
+        if self.mlp_type == "swiglu":
+            hidden = int(4 * cfg.n_embd * 2 / 3)        # 2/3 of 4x = ~2.67x
+            # round to a multiple of head_dim for tidy shapes
+            hidden = ((hidden + cfg.n_embd // cfg.n_head - 1)
+                      // (cfg.n_embd // cfg.n_head)) * (cfg.n_embd // cfg.n_head)
+            self.c_gate = nn.Linear(cfg.n_embd, hidden, bias=False)
+            self.c_up = nn.Linear(cfg.n_embd, hidden, bias=False)
+            self.c_proj = nn.Linear(hidden, cfg.n_embd, bias=False)
+        else:
+            self.c_fc = nn.Linear(cfg.n_embd, 4 * cfg.n_embd)
+            self.c_proj = nn.Linear(4 * cfg.n_embd, cfg.n_embd)
 
     def forward(self, x):
+        if self.mlp_type == "swiglu":
+            return self.c_proj(F.silu(self.c_gate(x)) * self.c_up(x))
         x = self.c_fc(x)
         x = F.gelu(x)
         x = self.c_proj(x)
         return x
+
+
+# ---------------------------------------------------------------------------
+# 2b. MIXTURE-OF-EXPERTS (MoE) — replaces the dense MLP in a block.
+#
+#   Each token is routed by a small gate to its top-k experts (out of n_expert).
+#   Only those k experts compute for that token -> inference runs at ~k/n_expert
+#   of the FLOPs, while the TOTAL knowledge capacity is n_expert experts.
+#   This is how a ~8B-total / ~2B-active model runs fast but knows a lot.
+#
+#   Aux load-balance loss (Switch Transformer): n_expert * sum(f_i * P_i)
+#     f_i = fraction of tokens routed to expert i
+#     P_i = mean router probability for expert i
+#   Pushes tokens to spread across experts (avoids collapse to 1 expert).
+# ---------------------------------------------------------------------------
+class MoE(nn.Module):
+    def __init__(self, n_expert=cfg.n_expert, n_expert_top=cfg.n_expert_top):
+        super().__init__()
+        self.n_expert = n_expert
+        self.n_expert_top = n_expert_top
+        self.n_shared = getattr(cfg, "n_shared_expert", 0)   # DeepSeek-style
+        self.gate = nn.Linear(cfg.n_embd, n_expert, bias=False)
+        # Each expert is its own little MLP (same shape as the dense MLP).
+        self.experts = nn.ModuleList([MLP() for _ in range(n_expert)])
+        # Shared expert(s): always active (no routing), captures common
+        # knowledge so the routed experts don't have to relearn it -> better
+        # specialization. Add 1 and the total active params go up by one MLP.
+        self.shared_experts = nn.ModuleList([MLP() for _ in range(self.n_shared)])
+
+    def forward(self, x):
+        # x: (B, T, C) -> flatten tokens for routing
+        B, T, C = x.shape
+        flat = x.view(B * T, C)
+
+        # --- gate + top-k routing ---
+        gate_logits = self.gate(flat)                       # (B*T, n_expert)
+        topk_vals, topk_idx = torch.topk(gate_logits, self.n_expert_top, dim=-1)
+        topk_weights = F.softmax(topk_vals, dim=-1)         # (B*T, n_expert_top)
+
+        # dispatch: for each expert, gather the tokens routed to it, run the
+        # expert MLP on just those, then scatter results back. This keeps
+        # memory bounded to active params (the whole point of MoE).
+        out = torch.zeros_like(flat)
+        for e in range(self.n_expert):
+            # which (token-row, topk-slot) pairs chose expert e?
+            mask = (topk_idx == e)                          # (B*T, n_expert_top)
+            if not mask.any():
+                continue
+            token_idx, slot_idx = mask.nonzero(as_tuple=True)
+            expert_in = flat[token_idx]                     # only the routed tokens
+            expert_out = self.experts[e](expert_in)
+            # weight each expert's output by its top-k router weight
+            w = topk_weights[token_idx, slot_idx].unsqueeze(-1)
+            out.index_add_(0, token_idx, expert_out * w)
+
+        # --- shared expert: always-on, runs on every token (no routing) ---
+        for se in self.shared_experts:
+            out = out + se(flat)
+
+        # --- load-balance aux loss (Switch Transformer form) ---
+        with torch.no_grad():
+            # f_i = fraction of tokens whose TOP-1 choice was expert i
+            top1 = topk_idx[:, 0]
+            counts = torch.bincount(top1, minlength=self.n_expert).float()
+            f = counts / counts.sum()
+        P = F.softmax(gate_logits, dim=-1).mean(0)          # mean router prob per expert
+        aux_loss = self.n_expert * (f * P).sum()
+
+        return out.view(B, T, C), aux_loss
 
 
 # ---------------------------------------------------------------------------
@@ -131,15 +234,22 @@ class Block(nn.Module):
         self.ln_1 = RMSNorm(cfg.n_embd)
         self.attn = CausalSelfAttention()
         self.ln_2 = RMSNorm(cfg.n_embd)
-        self.mlp = MLP()
+        # MoE layer if enabled, else the dense MLP. MoE returns (out, aux_loss).
+        self.mlp = MoE() if cfg.use_moe else MLP()
+        self.is_moe = cfg.use_moe
 
     def forward(self, x, rope_cos=None, rope_sin=None, kv_cache=None, use_cache=False):
         attn_out, new_kv = self.attn(
             self.ln_1(x), rope_cos, rope_sin, kv_cache, use_cache
         )
         x = x + attn_out
-        x = x + self.mlp(self.ln_2(x))
-        return x, new_kv
+        ff_in = self.ln_2(x)
+        if self.is_moe:
+            ff_out, aux = self.mlp(ff_in)
+            x = x + ff_out
+            return x, new_kv, aux
+        x = x + self.mlp(ff_in)
+        return x, new_kv, None
 
 
 # ---------------------------------------------------------------------------
@@ -197,11 +307,14 @@ class GPT(nn.Module):
         x = self.wte(idx)                           # (B, T, n_embd)
 
         new_caches = [] if use_cache else None
+        aux_total = 0.0
         for i, block in enumerate(self.blocks):
             layer_cache = kv_caches[i] if (use_cache and kv_caches is not None) else None
-            x, new_kv = block(x, rope_cos, rope_sin, layer_cache, use_cache)
+            x, new_kv, aux = block(x, rope_cos, rope_sin, layer_cache, use_cache)
             if use_cache:
                 new_caches.append(new_kv)
+            if aux is not None:
+                aux_total = aux_total + aux
 
         x = self.ln_f(x)
         logits = self.lm_head(x)
@@ -211,14 +324,26 @@ class GPT(nn.Module):
                 logits.view(B * T, cfg.vocab_size),
                 targets.view(B * T),
             )
+            # add the MoE load-balancing aux loss if any block is an MoE
+            if not isinstance(aux_total, float):
+                loss = loss + cfg.moe_aux_loss * aux_total
             return logits, loss, new_caches
         return logits, None, new_caches
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=50):
+    def generate(self, idx, max_new_tokens, temperature=0.8, top_k=50,
+                 top_p=0.9, repetition_penalty=1.2):
         """Fast generation: prefill the whole prompt (building the KV cache),
-        then decode ONE token at a time reusing the cache. top_k=50 keeps only
-        the 50 most-likely next tokens before sampling -> kills tail garbage."""
+        then decode ONE token at a time reusing the cache.
+
+        Sampling controls:
+          temperature        -> lower=tamer/safer, higher=wilder (0.6-0.9 sweet spot)
+          top_k=50           -> keep only the 50 highest-prob tokens (kills the tail)
+          top_p=0.9          -> nucleus: keep smallest token set whose prob sums to 0.9
+          repetition_penalty -> divide logits of tokens already generated by this
+                                (1.0 = off; 1.2-1.3 breaks the 'Singapore Singapore'
+                                loops a 17M model falls into). THE key fix.
+        """
         self.eval()
         self._ensure_rope(idx.device, idx.dtype)
 
@@ -233,11 +358,36 @@ class GPT(nn.Module):
         generated = idx
         for _ in range(max_new_tokens):
             logits = next_logits / max(temperature, 1e-4)
+
+            # --- repetition penalty: divide logits of already-seen tokens ---
+            # (divide, not subtract, so a very confident repeat gets tamed but a
+            #  weak one still survives; applied on the raw scaled logits)
+            if repetition_penalty != 1.0:
+                for b in range(B):
+                    seen = set(generated[b].tolist())
+                    logits[b, list(seen)] /= repetition_penalty
+
             if top_k is not None and top_k > 0:
                 # keep only the top_k logits, set the rest to -inf
                 kth = torch.topk(logits, k=min(top_k, logits.size(-1)))
                 thresh = kth.values[:, -1:]
                 logits = torch.where(logits < thresh, torch.full_like(logits, float("-inf")), logits)
+
+            if top_p is not None and 0 < top_p < 1.0:
+                # nucleus: keep the smallest token set whose cumulative prob >= top_p.
+                # Work in sorted order, then scatter-remove back to the original layout.
+                sorted_logits, sorted_idx = torch.sort(logits, descending=True)
+                cum_probs = torch.softmax(sorted_logits, dim=-1).cumsum(dim=-1)
+                # tokens AFTER the first one that crosses top_p are removed
+                sorted_remove = cum_probs > top_p
+                # but always keep the top-1 token (shift the mask right by one)
+                sorted_remove[..., 1:] = sorted_remove[..., :-1].clone()
+                sorted_remove[..., 0] = False
+                # map the sorted-order removal mask back to the original vocab order
+                indices_to_remove = torch.zeros_like(logits, dtype=torch.bool)
+                indices_to_remove.scatter_(-1, sorted_idx, sorted_remove)
+                logits = logits.masked_fill(indices_to_remove, float("-inf"))
+
             probs = F.softmax(logits, dim=-1)
             next_token = torch.multinomial(probs, num_samples=1)   # (B,1)
             generated = torch.cat([generated, next_token], dim=1)
@@ -255,6 +405,13 @@ class GPT(nn.Module):
 
 # Quick sanity check when you run: python model.py
 if __name__ == "__main__":
+    # Guard: never accidentally build the fat (~8B) profile on a small machine.
+    import config as _cfg
+    if _cfg.PROFILE == "fat" and torch.cuda.is_available() \
+       and torch.cuda.get_device_properties(0).total_memory < 16 * (10**9):
+        print("REFUSING to build the 'fat' profile on this GPU (<16GB).")
+        print("Set CHATON_PROFILE=dev for local architecture work, or run 'fat' on a cloud VM.")
+        raise SystemExit(0)
     model = GPT()
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model built. Parameters: {n_params:,}")

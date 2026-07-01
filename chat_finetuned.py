@@ -30,7 +30,8 @@ while True:
         prompt = f"Q: {question}\nA:"
     idx = torch.tensor([encode(prompt)], dtype=torch.long, device=device)
 
-    out = model.generate(idx, max_new_tokens=80, temperature=0.4, top_k=50)
+    out = model.generate(idx, max_new_tokens=80, temperature=0.4, top_k=50,
+                         top_p=0.9, repetition_penalty=1.15)
     new_tokens = out[0].tolist()[len(idx[0]):]
     if EOT_ID in new_tokens:
         new_tokens = new_tokens[:new_tokens.index(EOT_ID)]

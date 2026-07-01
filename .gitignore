@@ -9,3 +9,12 @@ custom_bpe*
 
 # old toy data
 training-data.json
+
+# SECRETS — never commit
+gpus.md
+*.env
+.env
+secrets*
+# agent/verifier scratch + modal logs
+modal_run.log
+verify/_runs/
