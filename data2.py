@@ -15,7 +15,11 @@ from datasets import load_dataset
 from tokenizer import encode, EOT_TOKEN, VOCAB_SIZE
 
 CORPUS = os.environ.get("CHATON_CORPUS", "wikitext-2")   # override via env
-BLOCK = 512  # must match config.block_size
+# BLOCK = the window size for the on-GPU val shard. Must match config.block_size.
+# Read CHATON_BLOCK_SIZE so the T4 (block 512) and L4/A100 (block 1024/2048) runs
+# each get a correctly-sized val shard instead of a hardcoded-512 one that would
+# overflow for bigger blocks.
+BLOCK = int(os.environ.get("CHATON_BLOCK_SIZE", "512"))
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
