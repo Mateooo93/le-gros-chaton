@@ -15,6 +15,7 @@ gpus.md
 *.env
 .env
 secrets*
-# agent/verifier scratch + modal logs
+# agent/verifier/eval scratch + modal logs
 modal_run.log
 verify/_runs/
+eval/_runs/
