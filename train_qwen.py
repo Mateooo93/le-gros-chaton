@@ -140,7 +140,7 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
         report_to="none",
         dataloader_num_workers=2,
         gradient_checkpointing=True,
-        optim="adamw_8bit",
+        optim="paged_adamw_8bit",  # Offloads optimizer states to CPU
     )
 
     trainer = Trainer(
@@ -234,8 +234,8 @@ def main():
     parser.add_argument("--sft-epochs", type=int, default=1)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--rlvr-steps", type=int, default=200)
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--max-length", type=int, default=2048)
+    parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--max-length", type=int, default=1024)
     parser.add_argument("--output", default="qwen_coding_agent")
     args = parser.parse_args()
 
