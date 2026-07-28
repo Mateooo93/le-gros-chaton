@@ -45,13 +45,14 @@ def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=quant,
-        device_map="auto",
+        device_map="cuda:0",
         trust_remote_code=True,
         torch_dtype="auto",
     )
 
     if use_lora:
-        model = prepare_model_for_kbit_training(model)
+        # Skip prepare_model_for_kbit_training — it converts to fp32 causing OOM on T4.
+        # 4-bit QLoRA doesn't need it for LoRA training.
         lora_config = LoraConfig(
             r=16,
             lora_alpha=32,
@@ -279,6 +280,22 @@ def main():
     print(f"\n{'='*50}")
     print(f"[train] ✓ Model saved to {args.output}")
     print(f"[train] Run: python eval_qwen.py --ckpt {args.output}")
+
+    # Upload to HuggingFace Hub (if HF_TOKEN is set)
+    import os
+    hf_token = os.environ.get("HF_TOKEN")
+    if hf_token:
+        try:
+            from huggingface_hub import HfApi
+            api = HfApi(token=hf_token)
+            repo_id = f"{api.whoami()['name']}/le-gros-chaton-qwen"
+            api.create_repo(repo_id, private=True, exist_ok=True)
+            api.upload_folder(folder_path=args.output, repo_id=repo_id)
+            print(f"[train] ✓ Uploaded to HF Hub: {repo_id}")
+        except Exception as e:
+            print(f"[train] HF upload skipped: {e}")
+    else:
+        print(f"[train] Set HF_TOKEN env var to auto-upload to HF Hub")
     print(f"{'='*50}")
 
 
