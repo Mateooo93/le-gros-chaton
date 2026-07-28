@@ -15,6 +15,11 @@ import os
 import sys
 import time
 
+try:
+    import torch
+except ImportError:
+    torch = None
+
 PROJ_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJ_ROOT not in sys.path:
     sys.path.insert(0, PROJ_ROOT)
@@ -110,7 +115,6 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
             max_length: int = 2048):
     """Supervised fine-tuning on the Fable5 dataset."""
     from transformers import TrainingArguments, Trainer, DataCollatorForSeq2Seq
-    import torch
 
     def tokenize_fn(examples):
         texts = [format_chat({"messages": m}) if isinstance(m, list) and len(m) > 0
@@ -172,7 +176,6 @@ def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
     """GRPO with proportional rewards (verifier-based)."""
     from verify.verifier import Problem, verify
     from torch.optim import AdamW
-    import torch
 
     optimizer = AdamW(model.parameters(), lr=2e-5)
     device = model.device
