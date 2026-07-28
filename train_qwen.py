@@ -66,6 +66,12 @@ def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
         model.print_trainable_parameters()
 
     print(f"[train] Loaded in {time.time() - t0:.1f}s")
+    # Debug: print GPU memory
+    if torch.cuda.is_available():
+        for i in range(torch.cuda.device_count()):
+            mem = torch.cuda.get_device_properties(i).total_memory / 1e9
+            used = torch.cuda.memory_allocated(i) / 1e9
+            print(f"[train] GPU {i}: {used:.1f}GB / {mem:.1f}GB used")
     return model, tokenizer
 
 
@@ -128,7 +134,7 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
     training_args = TrainingArguments(
         output_dir=out_dir,
         per_device_train_batch_size=batch_size,
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=8,
         learning_rate=lr,
         warmup_steps=100,
         num_train_epochs=epochs,
@@ -234,8 +240,8 @@ def main():
     parser.add_argument("--sft-epochs", type=int, default=1)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--rlvr-steps", type=int, default=200)
-    parser.add_argument("--batch-size", type=int, default=2)
-    parser.add_argument("--max-length", type=int, default=1024)
+    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--max-length", type=int, default=512)
     parser.add_argument("--output", default="qwen_coding_agent")
     args = parser.parse_args()
 
