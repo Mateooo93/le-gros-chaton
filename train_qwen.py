@@ -45,7 +45,7 @@ def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=quant,
-        device_map="cuda:0",
+        device_map="auto",
         trust_remote_code=True,
         torch_dtype="auto",
     )
