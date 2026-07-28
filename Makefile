@@ -63,6 +63,13 @@ qwen-eval:
 qwen-agent:
 	$(PYTHON) agent_qwen.py --model Qwen/Qwen2.5-Coder-7B --max-steps 3 "list .py files"
 
+# SWE-bench evaluation
+swebench:
+	$(PYTHON) eval_swebench.py --model Qwen/Qwen3.5-9B --ckpt qwen_coding_agent --limit 10
+
+swebench-save:
+	$(PYTHON) eval_swebench.py --results swebench_results.json
+
 clean:
 	find . -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 	find . -name '.pytest_cache' -type d -exec rm -rf {} + 2>/dev/null || true
