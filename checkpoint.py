@@ -40,7 +40,7 @@ def save_checkpoint(path, model, optimizer, step, scaler=None, extra=None):
         "optimizer": optimizer.state_dict(),
         "step": int(step),
         "scaler": scaler.state_dict() if scaler is not None else None,
-        "config": {k: getattr(cfg, k) for k in dir(cfg) if not k.startswith("_")},
+        "config": {k: getattr(cfg, k, None) for k in cfg.ARCH_KEYS},
         "extra": extra or {},
     }
     torch.save(payload, path)
@@ -49,7 +49,10 @@ def save_checkpoint(path, model, optimizer, step, scaler=None, extra=None):
 
 def load_checkpoint(path, model, optimizer, scaler=None, device="cuda"):
     """Restore model + optimizer + step (+ scaler) from a checkpoint.
-    Returns the step to resume from. Model/optimizer must already be built."""
+
+    Returns ``(step, extra)`` where *extra* is the checkpoint's extra dict
+    (may contain EMA shadow, etc.).  Model/optimizer must already be built.
+    """
     payload = torch.load(path, map_location=device, weights_only=False)
     target = model._orig_mod if hasattr(model, "_orig_mod") else model
     target.load_state_dict(payload["model"])
@@ -57,8 +60,9 @@ def load_checkpoint(path, model, optimizer, scaler=None, device="cuda"):
     if scaler is not None and payload.get("scaler") is not None:
         scaler.load_state_dict(payload["scaler"])
     step = payload["step"]
+    extra = payload.get("extra", {}) or {}
     print(f"[ckpt] restored step {step} from {path}")
-    return int(step)
+    return int(step), extra
 
 
 # --- HuggingFace Hub sync (optional; only if HF_REPO + huggingface_hub installed) ---
@@ -100,6 +104,7 @@ if __name__ == "__main__":
     m = GPT().to("cpu")
     opt = torch.optim.AdamW(m.parameters(), lr=1e-3)
     save_checkpoint("/tmp/_test_ckpt.pt", m, opt, step=1234)
-    step = load_checkpoint("/tmp/_test_ckpt.pt", m, opt, device="cpu")
+    step, extra = load_checkpoint("/tmp/_test_ckpt.pt", m, opt, device="cpu")
     print("round-trip step:", step, "(expect 1234)")
+    print("extra:", extra)
     os.remove("/tmp/_test_ckpt.pt")

@@ -19,9 +19,12 @@ and to run fully offline after the first fetch.
 """
 import json
 import os
+import sys
 
-# verify/ is the current package; project root is one level up.
+# project root so verify.verifier can be imported
 PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJ_ROOT not in sys.path:
+    sys.path.insert(0, PROJ_ROOT)
 CACHE = os.path.join(PROJ_ROOT, "eval_data", "humaneval.json")
 
 # We import Problem lazily inside load() to avoid a circular import if verifier

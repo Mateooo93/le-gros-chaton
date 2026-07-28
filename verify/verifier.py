@@ -15,6 +15,7 @@ Initially this handles HumanEval-style problems:
   - language: "python" for now (the verifier is code-agnostic by design — add
     a language pack later for go/js/etc)
 """
+import hashlib
 import os
 import sys
 import textwrap
@@ -76,28 +77,35 @@ def verify(problem: Problem, solution: str, timeout: float = 15.0,
     os.makedirs(cwd, exist_ok=True)
 
     code = _python_check_code(problem, solution)
-    run_file = os.path.join(cwd, f"_sol_{abs(hash(problem.id)) & 0xffff}.py")
+    tag = hashlib.md5(problem.id.encode()).hexdigest()[:12] if hasattr(hashlib, 'md5') else problem.id.replace('/', '_')
+    run_file = os.path.join(cwd, f"_sol_{tag}.py")
     with open(run_file, "w") as f:
         f.write(code)
 
     r = run_cmd(f"python {os.path.basename(run_file)}", timeout=timeout, cwd=cwd)
-    out = (r.get("combined_truncated") or "")
-    rc = r.get("rc", -1)
+    out = r.combined_truncated
+    rc = r.rc
+
+    # Cleanup: remove the temp file after verification completes
+    try:
+        os.remove(run_file)
+    except OSError:
+        pass
 
     # count asserts: a passing run prints OK and exits 0. A failing run exits
     # non-zero with an AssertionError. We parse per-test results from the tests
     # block by running them one at a time if the bulk run failed — cheap way to
     # get per-test detail without a test framework dependency.
-    if rc == 0 and "OK" in (r.get("stdout") or ""):
+    if rc == 0 and "OK" in r.stdout:
         # whole suite passed — every test passed
         n_total = _count_asserts(problem.tests)
         return Verdict(passed=True, n_pass=n_total, n_total=n_total,
-                       per_test=[True] * n_total, stdout=r.get("stdout", ""),
-                       stderr=r.get("stderr", ""), rc=rc, timed_out=r.get("timed_out", False))
+                       per_test=[True] * n_total, stdout=r.stdout,
+                       stderr=r.stderr, rc=rc, timed_out=r.timed_out)
 
-    if r.get("timed_out"):
+    if r.timed_out:
         return Verdict(passed=False, n_pass=0, n_total=_count_asserts(problem.tests),
-                       stdout=r.get("stdout", ""), stderr=r.get("stderr", ""),
+                       stdout=r.stdout, stderr=r.stderr,
                        rc=rc, timed_out=True)
 
     # bulk run failed -> run each assert individually to get per-test detail
@@ -106,9 +114,9 @@ def verify(problem: Problem, solution: str, timeout: float = 15.0,
     n_pass = sum(per_test)
     return Verdict(passed=(n_pass == n_total and n_total > 0),
                    n_pass=n_pass, n_total=n_total, per_test=per_test,
-                   stdout=r.get("stdout", ""), stderr=r.get("stderr", ""), rc=rc,
+                   stdout=r.stdout, stderr=r.stderr, rc=rc,
                    timed_out=False,
-                   error=r.get("stderr", "")[:500] if rc != 0 else "")
+                   error=r.stderr[:500] if rc != 0 else "")
 
 
 def _count_asserts(tests: str) -> int:
@@ -123,11 +131,17 @@ def _per_test_results(problem: Problem, solution: str, timeout: float, cwd: str)
     results = []
     for a in asserts:
         code = f"{solution}\n{a}\nprint('OK')\n"
-        f = os.path.join(cwd, f"_t_{abs(hash(a)) & 0xffff}.py")
+        tag = hashlib.md5(a.encode()).hexdigest()[:12]
+        f = os.path.join(cwd, f"_t_{problem.id.replace('/', '_')}_{tag}.py")
         with open(f, "w") as fh:
             fh.write(code)
         r = run_cmd(f"python {os.path.basename(f)}", timeout=timeout, cwd=cwd)
-        results.append(r.get("rc") == 0 and "OK" in (r.get("stdout") or ""))
+        results.append(r.rc == 0 and "OK" in r.stdout)
+        # Cleanup: remove per-test temp file
+        try:
+            os.remove(f)
+        except OSError:
+            pass
     return results or [False]
 
 

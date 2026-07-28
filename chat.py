@@ -1,31 +1,38 @@
-from tokenizer import decode, encode, VOCAB_SIZE
-import torch
-from model import GPT
+"""Interactive chat using the unified InferenceEngine.
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+Simplified to a thin wrapper — all generation logic lives in ``inference.py``.
+"""
+import sys
+from inference import InferenceEngine
 
-# Load the model ONCE, before the loop. (Before it was reloading every message!)
-model = GPT().to(device)
-model.load_state_dict(torch.load("model.pt"))
-model.eval()
 
-print("Model loaded. Type 'quit' to exit.\n")
+def main():
+    ckpt = sys.argv[1] if len(sys.argv) > 1 else "model.pt"
+    engine = InferenceEngine(ckpt)
 
-while True:
-    prompt = input("prompt: ")
-    if prompt.strip().lower() in ("quit", "exit"):
-        break
-    if not prompt.strip():
-        continue
+    print("Chat with Chaton.  Type 'quit' to exit, /clear to reset cache.\n")
+    engine.clear_cache()
+    history: list[dict] = [
+        {"role": "system", "content": "You are a helpful coding assistant."}
+    ]
 
-    # Encode the prompt into a (1, len) tensor of token IDs on the GPU.
-    idx = torch.tensor([encode(prompt)], dtype=torch.long, device=device)
+    while True:
+        user = input(">>> ")
+        if user.strip().lower() in ("quit", "exit"):
+            break
+        if user.strip() == "/clear":
+            engine.clear_cache()
+            history = history[:1]
+            print("(cache reset)\n")
+            continue
+        if not user.strip():
+            continue
 
-    # Generate a continuation. The sampler now has repetition_penalty (kills
-    # the 'Singapore Singapore' loops a small model falls into) + top_p nucleus.
-    out = model.generate(idx, max_new_tokens=100, temperature=0.8, top_k=50,
-                         top_p=0.9, repetition_penalty=1.2)
+        history.append({"role": "user", "content": user})
+        reply = engine.chat(history)
+        print(f"  {reply}\n")
+        history.append({"role": "assistant", "content": reply})
 
-    # decode turns the full token sequence (prompt + new) back into text.
-    print(decode(out[0].tolist()))
-    print("-" * 40)
+
+if __name__ == "__main__":
+    main()

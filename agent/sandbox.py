@@ -2,22 +2,27 @@
 
 The agent emits shell commands; this runs them safely and returns stdout+stderr.
 Safety: a timeout (so an infinite loop can't hang the agent), a working
-directory it can't escape from, and (optional) a denylist of dangerous patterns.
+directory it can't escape from, a denylist of dangerous patterns, and output
+truncation so the model's context window doesn't fill up.
+
 This is NOT a real OS-level sandbox (no namespace/seccomp) — good enough for a
 learning agent on your own machine, NOT for untrusted model output. For
 untrusted models you'd run this in a container/firejail.
 
-The interface is dead simple on purpose:
-    out, rc, timed_out = run_cmd("ls -la", timeout=10)
+The interface:
+    r = run_cmd("ls -la", timeout=10)
+    print(r.stdout, r.stderr, r.rc)
 """
 import os
 import re
-import shlex
 import subprocess
+from dataclasses import dataclass, field
+from typing import ClassVar
+
 
 # patterns we refuse to run at all (the agent should not be able to nuke things).
 # crude but stops the obvious foot-guns. extend as you learn what it tries.
-DANGEROUS = [
+DANGEROUS: ClassVar[list[str]] = [
     r"\brm\s+-rf\s+/?(\s|$)",      # rm -rf /  (nope)
     r"\bmkfs\b",
     r"dd\s+.*of=/dev/",
@@ -27,10 +32,25 @@ DANGEROUS = [
     r"\breboot\b",
     r":\(\)\s*\{.*\};",            # fork bomb
 ]
-_DANGER_RE = [re.compile(p) for p in DANGEROUS]
+_DANGER_RE: list[re.Pattern] = [re.compile(p) for p in DANGEROUS]
 
 # default working dir = the project root (so the agent edits real files)
-DEFAULT_CWD = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_CWD: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# max combined stdout + stderr bytes before truncation
+_MAX_OUTPUT: int = 8192
+
+
+@dataclass
+class CmdResult:
+    """Structured result from running a shell command."""
+
+    stdout: str = ""
+    stderr: str = ""
+    combined_truncated: str = ""
+    rc: int = -1
+    timed_out: bool = False
+    blocked: bool = False
 
 
 def is_safe(cmd: str) -> tuple[bool, str]:
@@ -42,17 +62,18 @@ def is_safe(cmd: str) -> tuple[bool, str]:
     return True, ""
 
 
-def run_cmd(cmd: str, timeout: float = 20.0, cwd: str | None = None) -> dict:
-    """Run a shell command, return a dict with stdout/stderr/rc/timed_out.
+def run_cmd(cmd: str, timeout: float = 20.0, cwd: str | None = None) -> CmdResult:
+    """Run a shell command, return a ``CmdResult``.
 
-    Uses shell=True because the agent's commands are free-form shell strings
-    (pipes, redirects). timeout kills hung processes. cwd confines it.
-    Returns up to ~8KB of combined output so we don't blow the model's context.
+    Uses ``shell=True`` because the agent's commands are free-form shell strings
+    (pipes, redirects). *timeout* kills hung processes. *cwd* confines it.
+    Returns up to ~8 KB of combined output so the model's context doesn't fill.
     """
     ok, why = is_safe(cmd)
     if not ok:
-        return {"stdout": "", "stderr": f"[sandbox] {why}", "rc": 126,
-                "timed_out": False, "blocked": True}
+        return CmdResult(
+            stderr=f"[sandbox] {why}", rc=126, blocked=True,
+        )
 
     cwd = cwd or DEFAULT_CWD
     try:
@@ -61,17 +82,25 @@ def run_cmd(cmd: str, timeout: float = 20.0, cwd: str | None = None) -> dict:
             timeout=timeout,
         )
     except subprocess.TimeoutExpired:
-        return {"stdout": "", "stderr": f"[sandbox] timed out after {timeout}s",
-                "rc": 124, "timed_out": True}
+        return CmdResult(
+            stderr=f"[sandbox] timed out after {timeout}s", rc=124, timed_out=True,
+        )
     except Exception as e:
-        return {"stdout": "", "stderr": f"[sandbox] exec error: {e}",
-                "rc": 125, "timed_out": False}
+        return CmdResult(
+            stderr=f"[sandbox] exec error: {e}", rc=125,
+        )
 
-    out = (p.stdout or "") + ("\n" if p.stderr else "") + (p.stderr or "")
-    if len(out) > 8192:
-        out = out[:8192] + f"\n[sandbox] output truncated ({len(out)-8192} more bytes)"
-    return {"stdout": p.stdout or "", "stderr": p.stderr or "",
-            "combined_truncated": out, "rc": p.returncode, "timed_out": False}
+    stdout = p.stdout or ""
+    stderr = p.stderr or ""
+    combined = stdout + ("\n" if stderr else "") + stderr
+    if len(combined) > _MAX_OUTPUT:
+        combined = combined[:_MAX_OUTPUT] + (
+            f"\n[sandbox] output truncated ({len(combined) - _MAX_OUTPUT} more bytes)"
+        )
+    return CmdResult(
+        stdout=stdout, stderr=stderr,
+        combined_truncated=combined, rc=p.returncode,
+    )
 
 
 if __name__ == "__main__":

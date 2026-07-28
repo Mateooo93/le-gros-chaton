@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as below."
+title: "Le Gros Chaton: A From-Scratch Mixture-of-Experts Coding Agent Transformer"
+authors:
+  - given-names: Mateo
+    family-names: ""
+    email: mateo@hackclub.com
+    orcid: ""
+version: 0.3.0-dev
+date-released: 2024-07
+repository-code: "https://github.com/Mateooo93/le-gros-chaton"
+license: "MIT"
+keywords:
+  - transformer
+  - mixture-of-experts
+  - coding-agent
+  - large-language-model
+  - reinforcement-learning
+  - pytorch
+abstract: "A from-scratch Mixture-of-Experts transformer trained for agentic coding tasks. Features grouped-query attention, SwiGLU activations, QK-normalisation, and a 6-stage RL pipeline (pretrain → RFT → RLVR → PRM → Agent RL). Built from PyTorch primitives with no dependence on pre-trained weights."

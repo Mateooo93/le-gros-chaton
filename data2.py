@@ -1,4 +1,4 @@
-"""Streaming token data pipeline.
+"""Streaming token data pipeline (lazy init).
 
 Encodes the corpus ONCE to a uint16 memmap on disk (~100M tokens = ~200MB),
 then streams random windows from it. This lets us train on hundreds of
@@ -7,6 +7,9 @@ millions of tokens without holding the whole tensor in GPU/CPU memory.
 Corpus is chosen by CORPUS below:
   "wikitext-2"   -> ~2M tokens, fast, good for smoke tests
   "wikitext-103" -> ~100M tokens, the real training corpus (use on a bigger GPU)
+
+Imports are side-effect free — preparation (download, tokenize, memmap, GPU
+upload) happens lazily on the first call to ``get_batch``.
 """
 import os
 import numpy as np
@@ -30,27 +33,40 @@ TRAIN_BIN = f"train_tokens_{_TAG}.bin"
 VAL_BIN = f"val_tokens_{_TAG}.bin"
 VAL_GPU_TOKENS = 262144   # ~256k-token fixed val shard kept on GPU for fast eval
 
+# Lazy-initialised globals — set on first get_batch call.
+_train_mmap: np.memmap | None = None
+_val_mmap: np.memmap | None = None
+_val_tensor_gpu: torch.Tensor | None = None
 
-def _build_corpus_memmap(name):
-    """Download + filter + tokenize one of the supported corpora to a single
-    int token list and a length. Returns (np.array(int64 total_list?), ...) —
-    actually returns a Python list of ints (caller writes the memmap)."""
+
+def _build_corpus_memmap(name: str) -> list[int]:
+    """Download + filter + tokenize one of the supported corpora.
+
+    Returns a flat Python list of token ids (caller writes the memmap).
+    """
     if name == "wikitext-2":
         ds = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
     elif name == "wikitext-103":
         ds = load_dataset("wikitext", "wikitext-103-raw-v1", split="train")
     else:
-        raise ValueError(f"unknown corpus {name}")
+        raise ValueError(f"unknown corpus {name!r}; expected 'wikitext-2' or 'wikitext-103'")
     texts = [t for t in ds["text"] if t.strip()]
     raw = "\n\n".join(texts)
     return encode(raw)
 
 
 def _prepare():
-    """Build train/val uint16 memmaps if they don't exist. Returns the numpy
-    memmap arrays for train and val."""
+    """Build train/val uint16 memmaps if they don't exist.
+
+    Returns (train_mmap, val_mmap) — numpy memmap arrays.  Idempotent:
+    subsequent calls return the already-constructed memmaps.
+    """
+    global _train_mmap, _val_mmap, _val_tensor_gpu  # noqa: PLW0603
+    if _train_mmap is not None and _val_mmap is not None:
+        return _train_mmap, _val_mmap
+
     if not (os.path.exists(TRAIN_BIN) and os.path.exists(VAL_BIN)):
-        print(f"[data2] encoding corpus {CORPUS!r} -> memmap (one-time)...")
+        print(f"[data2] encoding corpus {CORPUS!r} → memmap (one-time)...")
         tokens = _build_corpus_memmap(CORPUS)
         tokens = np.array(tokens, dtype=np.int64)
         # 90/10 split
@@ -62,28 +78,34 @@ def _prepare():
         print(f"[data2] {len(train_tokens):,} train | {len(val_tokens):,} val tokens written")
     else:
         print("[data2] memmap files already exist, skipping encode")
-    train_mmap = np.memmap(TRAIN_BIN, dtype=np.uint16, mode="r")
-    val_mmap = np.memmap(VAL_BIN, dtype=np.uint16, mode="r")
-    print(f"[data2] train {len(train_mmap):,} | val {len(val_mmap):,} tokens (loaded as memmap)")
-    return train_mmap, val_mmap
+    _train_mmap = np.memmap(TRAIN_BIN, dtype=np.uint16, mode="r")
+    _val_mmap = np.memmap(VAL_BIN, dtype=np.uint16, mode="r")
+    print(f"[data2] train {len(_train_mmap):,} | val {len(_val_mmap):,} tokens (loaded as memmap)")
+
+    # Fixed val shard resident on GPU so eval is fast and reproducible.
+    _val_len = min(VAL_GPU_TOKENS, len(_val_mmap) - BLOCK - 1)
+    _val_tensor_gpu = torch.from_numpy(
+        np.array(_val_mmap[:_val_len], dtype=np.int64)
+    ).to(device)
+
+    return _train_mmap, _val_mmap
 
 
-train_mmap, val_mmap = _prepare()
-
-# Fixed val shard resident on GPU so eval is fast and reproducible across runs.
-_val_len = min(VAL_GPU_TOKENS, len(val_mmap) - BLOCK - 1)
-val_tensor_gpu = torch.from_numpy(np.array(val_mmap[:_val_len], dtype=np.int64)).to(device)
-
-
-def get_batch(split, batch_size, block_size):
+def get_batch(split: str, batch_size: int, block_size: int):
     """Random-window batch. Reads a slice from the memmap and uploads ONLY
-    that slice to the GPU each step (so the big corpus never lives in VRAM)."""
+    that slice to the GPU each step (so the big corpus never lives in VRAM).
+
+    The first call triggers preparation (download + tokenize + memmap + GPU
+    upload).  Subsequent calls stream from the already-loaded memmaps.
+    """
+    train_mmap, val_mmap = _prepare()
+
     if split == "val":
         # deterministic, fast, GPU-resident shard
-        max_start = val_tensor_gpu.size(0) - block_size - 1
+        max_start = _val_tensor_gpu.size(0) - block_size - 1
         starts = torch.randint(max_start, (batch_size,), device=device)
-        x = torch.stack([val_tensor_gpu[i:i + block_size] for i in starts])
-        y = torch.stack([val_tensor_gpu[i + 1:i + block_size + 1] for i in starts])
+        x = torch.stack([_val_tensor_gpu[i:i + block_size] for i in starts])
+        y = torch.stack([_val_tensor_gpu[i + 1:i + block_size + 1] for i in starts])
         return x, y
 
     mmap = train_mmap
