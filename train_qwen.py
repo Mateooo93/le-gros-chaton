@@ -23,6 +23,9 @@ if PROJ_ROOT not in sys.path:
 def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
     """Load model with 4-bit QLoRA, optimized for L4 24GB."""
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+# Qwen3.5 requires transformers >= 4.49. Upgrade if needed:
+#   pip install -U git+https://github.com/huggingface/transformers.git
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
     quant = BitsAndBytesConfig(
