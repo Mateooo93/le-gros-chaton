@@ -125,6 +125,9 @@ class SWEAgent:
             )
 
             messages.append({"role": "assistant", "content": response})
+            if not hasattr(self, "trace"):
+                self.trace = []
+            self.trace.append({"turn": turn + 1, "response": response[:500]})
             print(f"\n--- Turn {turn + 1} ---")
             print(response[:300])
 
@@ -165,6 +168,7 @@ class SWEAgent:
                     "success": True,
                 }
 
+        self._save_trace(instance_id, self.max_turns, False)
         return {
             "instance_id": instance_id,
             "turns": self.max_turns,
@@ -221,6 +225,20 @@ class SWEAgent:
             return m.group(1), m.group(2).strip().strip("'\"")
 
         return "finish", "Task appears complete or unclear."
+
+    def _save_trace(self, instance_id: str, turns: int, success: bool):
+        """Save agent trace for debugging and future self-play training data."""
+        import json as _json
+        trace = {
+            "instance_id": instance_id,
+            "turns": turns,
+            "success": success,
+            "steps": getattr(self, "trace", []),
+        }
+        path = os.path.join(PROJ_ROOT, "agent_traces.jsonl")
+        with open(path, "a") as f:
+            f.write(_json.dumps(trace) + "\n")
+        print(f"[agent] Trace saved to {path}")
 
     def _load_project_context(self) -> str:
         """Load project context from CLAUDE.md / AGENTS.md / .chaton.md."""
