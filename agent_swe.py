@@ -102,6 +102,9 @@ class SWEAgent:
             {"role": "user", "content": f"Issue: {issue}\n\nRepo: {self.repo_dir}\n\nStart by exploring the codebase."},
         ]
 
+        self.tool_calls_used = 0
+        max_tool_calls = 40  # hard cap to prevent runaway loops
+
         for turn in range(self.max_turns):
             # Context window management: keep the last ~8 messages to avoid
             # overflowing the model's context (critical for long SWE tasks).
@@ -135,6 +138,12 @@ class SWEAgent:
             for action, args_text in actions:
                 if action == "finish":
                     print(f"\n✅ Agent finished: {args_text[:200]}")
+                    finished = True
+                    break
+
+                self.tool_calls_used += 1
+                if self.tool_calls_used > max_tool_calls:
+                    print(f"\n⚠ Hit tool-call cap ({max_tool_calls}). Stopping.")
                     finished = True
                     break
 
