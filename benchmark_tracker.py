@@ -111,6 +111,20 @@ def compare(run_a: str, run_b: str):
                   f"{rb['pass_rate']:<10.1f} {d:+.1f} {arrow}")
 
 
+def export_csv(path: str = "benchmark_results.csv"):
+    """Export all results as CSV for plotting."""
+    import csv as _csv
+    results = load_all()
+    if not results:
+        print("[tracker] No results to export")
+        return
+    with open(path, "w", newline="") as f:
+        writer = _csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
+        writer.writerows(results)
+    print(f"[tracker] Exported {len(results)} rows to {path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Benchmark results tracker")
     parser.add_argument("--add", choices=["humaneval", "swebench", "toolcall", "agent"],
@@ -124,6 +138,8 @@ def main():
     parser.add_argument("--trend", default=None, help="Show trend for a benchmark")
     parser.add_argument("--compare", nargs=2, metavar=("RUN_A", "RUN_B"),
                         help="Compare two run IDs")
+    parser.add_argument("--csv", nargs="?", const="benchmark_results.csv",
+                        help="Export results to CSV (for plotting)")
     args = parser.parse_args()
 
     if args.add:
@@ -137,7 +153,9 @@ def main():
         show_trend(args.trend)
     if args.compare:
         compare(*args.compare)
-    if not (args.add or args.list or args.trend or args.compare):
+    if args.csv:
+        export_csv(args.csv)
+    if not (args.add or args.list or args.trend or args.compare or args.csv):
         parser.print_help()
 
 
