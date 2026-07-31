@@ -82,6 +82,11 @@ class SWEAgent:
         ]
 
         for turn in range(self.max_turns):
+            # Context window management: keep the last ~8 messages to avoid
+            # overflowing the model's context (critical for long SWE tasks).
+            if len(messages) > 10:
+                messages = messages[:1] + messages[-9:]
+
             prompt = self._format_messages(messages)
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
 
