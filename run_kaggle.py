@@ -1,0 +1,138 @@
+"""Push + run + monitor Kaggle training via the Kaggle API.
+
+Requires KAGGLE_USERNAME and KAGGLE_KEY env vars (or kaggle.json).
+Saves them in gpus.md (gitignored) — never in source.
+
+Usage:
+    python run_kaggle.py                      # push + run + monitor
+    python run_kaggle.py --limit 5000         # smaller run
+    python run_kaggle.py --status             # check current run status
+    python run_kaggle.py --output             # download model artifacts
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+import time
+
+PROJ_ROOT = os.path.dirname(os.path.abspath(__file__))
+KAGGLE_DIR = os.path.join(PROJ_ROOT, "kaggle")
+KERNEL_ID = "mateo0093/le-gros-chaton-qwen-training"
+
+
+def load_creds():
+    """Load Kaggle credentials from gpus.md or env."""
+    username = os.environ.get("KAGGLE_USERNAME")
+    key = os.environ.get("KAGGLE_KEY")
+    if not (username and key):
+        # Try gpus.md
+        gpus = os.path.join(PROJ_ROOT, "gpus.md")
+        if os.path.exists(gpus):
+            with open(gpus) as f:
+                for line in f:
+                    if "KAGGLE_USERNAME" in line and "=" in line:
+                        username = line.split("=", 1)[1].strip()
+                    elif "KAGGLE_KEY" in line and "=" in line:
+                        key = line.split("=", 1)[1].strip()
+    if not (username and key):
+        print("[kaggle] ERROR: Need KAGGLE_USERNAME + KAGGLE_KEY")
+        print("[kaggle] Add them to gpus.md (gitignored) or set as env vars")
+        sys.exit(1)
+    return username, key
+
+
+def setup_env():
+    """Set Kaggle env vars from creds."""
+    u, k = load_creds()
+    os.environ["KAGGLE_USERNAME"] = u
+    os.environ["KAGGLE_KEY"] = k
+
+
+def push_kernel(limit: int):
+    """Write kernel-metadata.json with current limit, push the kernel."""
+    setup_env()
+    meta_path = os.path.join(KAGGLE_DIR, "kernel-metadata.json")
+    with open(meta_path) as f:
+        meta = json.load(f)
+    # Store the limit in an env pass-through via a comment in the script
+    with open(os.path.join(KAGGLE_DIR, "kaggle_train.py")) as f:
+        script = f.read()
+    script = script.replace('os.environ.get("TRAIN_LIMIT", "10000")',
+                            f'os.environ.get("TRAIN_LIMIT", "{limit}")')
+    with open(os.path.join(KAGGLE_DIR, "kaggle_train.py"), "w") as f:
+        f.write(script)
+
+    print(f"[kaggle] Pushing kernel {KERNEL_ID} (limit={limit})...")
+    r = subprocess.run(["kaggle", "kernels", "push", "-p", KAGGLE_DIR],
+                       capture_output=True, text=True)
+    print(r.stdout)
+    if r.returncode != 0:
+        print("[kaggle] Push error:", r.stderr)
+        sys.exit(1)
+
+
+def monitor(interval: int = 60, max_wait: int = 9 * 3600):
+    """Poll kernel status until complete or timeout (9hr Kaggle limit)."""
+    setup_env()
+    t0 = time.time()
+    while time.time() - t0 < max_wait:
+        r = subprocess.run(["kaggle", "kernels", "status", KERNEL_ID],
+                           capture_output=True, text=True)
+        out = r.stdout.strip()
+        elapsed = (time.time() - t0) / 3600
+        print(f"[kaggle] {elapsed:.1f}h | {out}")
+        if "complete" in out.lower():
+            print("[kaggle] ✓ Training complete!")
+            return True
+        if "error" in out.lower():
+            print("[kaggle] ✗ Training failed")
+            return False
+        time.sleep(interval)
+    print("[kaggle] Timed out after 9h (Kaggle session limit)")
+    return False
+
+
+def download_output():
+    """Download kernel output (model artifacts)."""
+    setup_env()
+    print("[kaggle] Downloading output...")
+    r = subprocess.run(["kaggle", "kernels", "output", KERNEL_ID,
+                        "-p", os.path.join(PROJ_ROOT, "kaggle_output")],
+                       capture_output=True, text=True)
+    print(r.stdout)
+    if r.returncode != 0:
+        print("[kaggle] Download error:", r.stderr)
+    else:
+        print(f"[kaggle] Output saved to {PROJ_ROOT}/kaggle_output/")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run Kaggle training via API")
+    parser.add_argument("--limit", type=int, default=10000,
+                        help="Dataset rows for training")
+    parser.add_argument("--status", action="store_true",
+                        help="Check current kernel status")
+    parser.add_argument("--output", action="store_true",
+                        help="Download kernel output")
+    parser.add_argument("--monitor-only", action="store_true",
+                        help="Only monitor (assume already pushed)")
+    args = parser.parse_args()
+
+    if args.status:
+        setup_env()
+        r = subprocess.run(["kaggle", "kernels", "status", KERNEL_ID],
+                           capture_output=True, text=True)
+        print(r.stdout)
+        return
+    if args.output:
+        download_output()
+        return
+
+    if not args.monitor_only:
+        push_kernel(args.limit)
+    monitor()
+
+
+if __name__ == "__main__":
+    main()

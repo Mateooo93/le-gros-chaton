@@ -1,0 +1,13 @@
+{
+  "id": "mateo0093/le-gros-chaton-qwen-training",
+  "title": "Le Gros Chaton — Qwen3.5-9B Training",
+  "code_file": "kaggle_train.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "competition_sources": [],
+  "dataset_sources": [],
+  "kernel_sources": []
+}
