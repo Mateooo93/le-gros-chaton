@@ -18,7 +18,7 @@ import time
 
 PROJ_ROOT = os.path.dirname(os.path.abspath(__file__))
 KAGGLE_DIR = os.path.join(PROJ_ROOT, "kaggle")
-KERNEL_ID = "mateo0093/le-gros-chaton-qwen-training"
+KERNEL_ID = "mateomanceron/le-gros-chaton-qwen-training"
 
 
 def load_creds():
@@ -55,13 +55,39 @@ def push_kernel(limit: int):
     meta_path = os.path.join(KAGGLE_DIR, "kernel-metadata.json")
     with open(meta_path) as f:
         meta = json.load(f)
-    # Store the limit in an env pass-through via a comment in the script
+    # Inject HF token + limit into a TEMP copy (never committed)
     with open(os.path.join(KAGGLE_DIR, "kaggle_train.py")) as f:
         script = f.read()
     script = script.replace('os.environ.get("TRAIN_LIMIT", "10000")',
                             f'os.environ.get("TRAIN_LIMIT", "{limit}")')
-    with open(os.path.join(KAGGLE_DIR, "kaggle_train.py"), "w") as f:
+
+    # Pull token from gpus.md at push time only
+    import re
+    hf_token = ""
+    gpus = os.path.join(PROJ_ROOT, "gpus.md")
+    if os.path.exists(gpus):
+        with open(gpus) as f:
+            for line in f:
+                m = re.match(r"HF_TOKEN\s*=\s*(\S+)", line)
+                if m:
+                    hf_token = m.group(1)
+    if hf_token:
+        # Inject into the upload copy (gitignored temp file)
+        script = script.replace(
+            'os.environ["HF_TOKEN"] = os.environ.get("HF_TOKEN", "")',
+            f'os.environ["HF_TOKEN"] = "{hf_token}"')
+        print("[kaggle] HF token injected into upload (temp only)")
+
+    temp_script = os.path.join(KAGGLE_DIR, "kaggle_train_upload.py")
+    with open(temp_script, "w") as f:
         f.write(script)
+
+    # Point metadata at the temp file
+    with open(os.path.join(KAGGLE_DIR, "kernel-metadata.json")) as f:
+        meta = json.load(f)
+    meta["code_file"] = "kaggle_train_upload.py"
+    with open(os.path.join(KAGGLE_DIR, "kernel-metadata.json"), "w") as f:
+        json.dump(meta, f, indent=2)
 
     print(f"[kaggle] Pushing kernel {KERNEL_ID} (limit={limit})...")
     r = subprocess.run(["kaggle", "kernels", "push", "-p", KAGGLE_DIR],

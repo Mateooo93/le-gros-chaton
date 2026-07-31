@@ -44,3 +44,4 @@ training/
 
 # Root-level notebook copies (use notebooks/ dir)
 chaton_*.ipynb
+kaggle/kaggle_train_upload.py
