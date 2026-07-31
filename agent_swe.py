@@ -43,22 +43,38 @@ Rules:
 - Generate a proper git diff
 """
 
+TDD_PROMPT = """You are a TDD software engineer fixing bugs in a codebase. You have access to these tools:
+
+{tools}
+
+Work in this exact order:
+1. REPRODUCE: write a small test that exposes the bug, run it, confirm it FAILS
+2. FIX: make the minimal change to the code
+3. VERIFY: run the test again, confirm it PASSES
+4. REGRESS: run the existing test suite, confirm nothing broke
+5. `finish` with a summary and your git diff
+
+This test-first loop catches mistakes early and proves your fix works.
+"""
+
 
 class SWEAgent:
     """Agentic loop for SWE-bench tasks."""
 
-    def __init__(self, model, tokenizer, repo_dir: str, device: str = "cuda"):
+    def __init__(self, model, tokenizer, repo_dir: str, device: str = "cuda",
+                 tdd: bool = False):
         self.model = model
         self.tokenizer = tokenizer
         self.repo_dir = repo_dir
         self.device = device
         self.history = []
         self.max_turns = 20
+        self.tdd = tdd
 
     def run(self, issue: str, instance_id: str = "unknown") -> dict:
         """Run the agent on a SWE task."""
         tools_str = "\n".join(f"  {k}: {v['desc']}" for k, v in TOOLS.items())
-        system = SYSTEM_PROMPT.format(tools=tools_str)
+        system = (TDD_PROMPT if self.tdd else SYSTEM_PROMPT).format(tools=tools_str)
 
         messages = [
             {"role": "system", "content": system},
@@ -244,6 +260,8 @@ def main():
     parser.add_argument("--issue", default=None, help="Issue description")
     parser.add_argument("--instance", default=None, help="SWE-bench instance JSON")
     parser.add_argument("--4bit", dest="four_bit", action="store_true")
+    parser.add_argument("--tdd", action="store_true",
+                        help="Test-Driven Development loop: test first, then fix, then verify")
     args = parser.parse_args()
 
     # Load model
@@ -261,7 +279,7 @@ def main():
         issue = args.issue or "Fix the bug"
         repo = args.repo or "."
 
-    agent = SWEAgent(model, tokenizer, repo, device=device)
+    agent = SWEAgent(model, tokenizer, repo, device=device, tdd=args.tdd)
     result = agent.run(issue)
 
     print(f"\n{'='*50}")
