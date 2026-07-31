@@ -82,6 +82,7 @@ def run(task: str, model_name: str = "Qwen/Qwen3.5-9B",
     Returns the final <done> message, or None if max steps reached.
     """
     model, tokenizer = load_qwen(model_name, ckpt_path, use_4bit)
+    traces = []
 
     # Build conversation (TDD variant adds test-first discipline)
     system = SYSTEM
@@ -122,10 +123,19 @@ def run(task: str, model_name: str = "Qwen/Qwen3.5-9B",
 
             conversation += f"\n$ {c}\n{result}\n"
 
+        # Save trace for training data (self-improvement loop)
+        trace_entry = {
+            "instance_id": "terminal_task",
+            "turn": step + 1,
+            "response": gen_text[:500],
+        }
+        traces.append(trace_entry)
+
         # Check if done
         if done_text:
             if verbose:
                 print(f"\n✅ Task complete: {done_text}")
+            save_trace(task, traces, done_text is not None)
             return done_text
 
         # Truncate if conversation gets too long
@@ -135,6 +145,21 @@ def run(task: str, model_name: str = "Qwen/Qwen3.5-9B",
     if verbose:
         print(f"\n⚠ Max steps ({max_steps}) reached without completion.")
     return None
+
+
+def save_trace(task: str, traces: list, success: bool):
+    """Append agent trace to agent_traces.jsonl for self-play training."""
+    import json as _json
+    path = os.path.join(PROJ_ROOT, "agent_traces.jsonl")
+    entry = {
+        "instance_id": "terminal_task",
+        "task": task[:200],
+        "success": success,
+        "steps": traces,
+    }
+    with open(path, "a") as f:
+        f.write(_json.dumps(entry) + "\n")
+    print(f"[agent] Trace saved to {path}")
 
 
 def main():
