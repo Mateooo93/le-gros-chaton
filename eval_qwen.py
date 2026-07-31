@@ -154,6 +154,8 @@ def main():
     parser.add_argument("--mode", choices=["humaneval", "agent"], default="humaneval")
     parser.add_argument("--limit", type=int, default=50, help="Problem limit")
     parser.add_argument("--n-samples", type=int, default=20, help="Test-time scaling")
+    parser.add_argument("--n-vote", type=int, default=1,
+                        help="Verifier voting: sample N and verify each (default 1=off)")
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--4bit", dest="four_bit", action="store_true", help="4-bit loading")
@@ -169,10 +171,21 @@ def main():
     print(f"[eval_qwen] Model loaded on {model.device}")
 
     if args.mode == "humaneval":
-        results = evaluate_humaneval(
-            model, tokenizer, limit=args.limit,
-            n_samples=args.n_samples, temperature=args.temperature,
-        )
+        if args.n_vote > 1:
+            print(f"[eval_qwen] Using verifier voting with n={args.n_vote}")
+            from vote_solutions import vote
+            from eval.humaneval_loader import load as load_humaneval
+            probs = load_humaneval(limit=args.limit)
+            data = vote(probs, model, tokenizer,
+                        n_samples=args.n_vote, device="cuda")
+            results = [{"id": r["id"], "pass@1": 100.0 if r["solved"] else 0.0,
+                        "passed": 1 if r["solved"] else 0, "n": 1}
+                       for r in data["results"]]
+        else:
+            results = evaluate_humaneval(
+                model, tokenizer, limit=args.limit,
+                n_samples=args.n_samples, temperature=args.temperature,
+            )
         if args.output:
             with open(args.output, "w") as f:
                 json.dump(results, f, indent=2)
