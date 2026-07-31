@@ -304,6 +304,8 @@ def main():
                         help="RLVR learning rate")
     parser.add_argument("--rlvr-max-new", type=int, default=256,
                         help="Max tokens per RLVR generation")
+    parser.add_argument("--resume-rlvr", default=None,
+                        help="Resume RLVR from this checkpoint dir")
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--max-length", type=int, default=512)
     parser.add_argument("--output", default="qwen_coding_agent")
@@ -314,8 +316,16 @@ def main():
     print(f"[train] Dataset: {args.dataset}")
     print(f"[train] Output: {args.output}")
 
-    # Load model
-    model, tokenizer = load_model(args.model)
+    # Load model (resume from RLVR checkpoint if requested)
+    if args.resume_rlvr:
+        from peft import PeftModel
+        from transformers import AutoModelForCausalLM
+        model, tokenizer = load_model(args.model)
+        model = PeftModel.from_pretrained(model, args.resume_rlvr)
+        model.eval()
+        print(f"[train] Resumed RLVR adapter from {args.resume_rlvr}")
+    else:
+        model, tokenizer = load_model(args.model)
 
     if not args.rlvr_only:
         # Phase 1: SFT on Fable5 dataset
