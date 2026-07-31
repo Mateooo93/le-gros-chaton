@@ -113,7 +113,13 @@ class SWEAgent:
                     break
 
                 result = self._execute_tool(action, args_text)
-                messages.append({"role": "user", "content": f"Result:\n{result[:2000]}"})
+                # Recovery: detect failures and inject corrective feedback
+                if self._is_failure(result):
+                    correction = self._failure_hint(action, result)
+                    messages.append({"role": "user", "content":
+                        f"Result:\n{result[:1500]}\n\n{correction}"})
+                else:
+                    messages.append({"role": "user", "content": f"Result:\n{result[:2000]}"})
 
             if finished:
                 return {
@@ -180,6 +186,31 @@ class SWEAgent:
             return m.group(1), m.group(2).strip().strip("'\"")
 
         return "finish", "Task appears complete or unclear."
+
+    def _is_failure(self, result: str) -> bool:
+        """Detect failure symptoms in tool output (Harness-Bench finding)."""
+        if not result or result.startswith("Error:"):
+            return True
+        lower = result.lower()
+        markers = [
+            "not found", "no such file", "error", "failed", "traceback",
+            "syntaxerror", "importerror", "keyerror", "filenotfound",
+            "does not exist", "command not found", "returned non-zero",
+            "permission denied",
+        ]
+        return any(m in lower for m in markers)
+
+    def _failure_hint(self, action: str, result: str) -> str:
+        """Generate corrective feedback (self-recovery)."""
+        hints = {
+            "read_file": "File may not exist or path wrong. Use list_dir to find it.",
+            "search_code": "Pattern may not match. Try simpler pattern or check structure.",
+            "run_test": "Test command failed. Check error; may be syntax or missing dep.",
+            "list_dir": "Directory may not exist. Try repo root or check typos.",
+            "write_file": "Could not write. Check parent directory exists.",
+        }
+        base = hints.get(action, "Tool call failed. Examine error and retry with corrected args.")
+        return "[Recovery] " + base + " Error was: " + result[:300]
 
     def _execute_tool(self, action: str, args_text: str) -> str:
         """Execute a tool and return the result."""
