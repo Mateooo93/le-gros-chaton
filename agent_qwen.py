@@ -75,15 +75,19 @@ def generate(model, tokenizer, conversation: str, max_new: int = 200,
 def run(task: str, model_name: str = "Qwen/Qwen3.5-9B",
         ckpt_path: str | None = None, max_steps: int = 10,
         max_new_tokens: int = 200, temperature: float = 0.7,
-        verbose: bool = True, use_4bit: bool = False) -> str | None:
+        verbose: bool = True, use_4bit: bool = False,
+        tdd: bool = False) -> str | None:
     """Run the agent loop with a Qwen model.
 
     Returns the final <done> message, or None if max steps reached.
     """
     model, tokenizer = load_qwen(model_name, ckpt_path, use_4bit)
 
-    # Build conversation
-    conversation = f"{SYSTEM}\n\nTask: {task}\n\n"
+    # Build conversation (TDD variant adds test-first discipline)
+    system = SYSTEM
+    if tdd:
+        system += "\n\nWork test-first: write a failing test, fix code, verify it passes."
+    conversation = f"{system}\n\nTask: {task}\n\n"
     timeout = 30.0
 
     for step in range(max_steps):
@@ -144,6 +148,8 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--4bit", dest="four_bit", action="store_true")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--tdd", action="store_true",
+                        help="TDD loop: test first, fix, verify")
     args = parser.parse_args()
 
     result = run(
@@ -154,6 +160,7 @@ def main():
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
         verbose=not args.quiet,
+        tdd=args.tdd,
     )
 
     if not args.quiet:
