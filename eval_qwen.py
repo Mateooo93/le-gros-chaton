@@ -160,6 +160,8 @@ def main():
     parser.add_argument("--output", default=None, help="Results JSON path")
     parser.add_argument("--record", action="store_true",
                         help="Record result to benchmark_tracker.py")
+    parser.add_argument("--all-evals", action="store_true",
+                        help="Run HumanEval + SWE-bench + tool-call evals, then record")
     args = parser.parse_args()
 
     print(f"[eval_qwen] Loading {args.model}...")
