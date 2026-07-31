@@ -76,6 +76,12 @@ class SWEAgent:
         tools_str = "\n".join(f"  {k}: {v['desc']}" for k, v in TOOLS.items())
         system = (TDD_PROMPT if self.tdd else SYSTEM_PROMPT).format(tools=tools_str)
 
+        # Project context: CLAUDE.md/AGENTS.md files are in 80% of orgs
+        # (State of AI Coding 2026). Inject repo-level instructions if present.
+        ctx = self._load_project_context()
+        if ctx:
+            system += f"\n\nPROJECT CONTEXT:\n{ctx[:2000]}" 
+
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": f"Issue: {issue}\n\nRepo: {self.repo_dir}\n\nStart by exploring the codebase."},
@@ -191,6 +197,18 @@ class SWEAgent:
             return m.group(1), m.group(2).strip().strip("'\"")
 
         return "finish", "Task appears complete or unclear."
+
+    def _load_project_context(self) -> str:
+        """Load project context from CLAUDE.md / AGENTS.md / .chaton.md."""
+        for name in ["CLAUDE.md", "AGENTS.md", "AGENT.md", ".chaton.md", ".cursorrules"]:
+            path = os.path.join(self.repo_dir, name)
+            if os.path.isfile(path):
+                try:
+                    with open(path) as f:
+                        return f.read()
+                except Exception:
+                    pass
+        return ""
 
     def _is_failure(self, result: str) -> bool:
         """Detect failure symptoms in tool output (Harness-Bench finding)."""
