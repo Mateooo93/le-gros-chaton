@@ -83,11 +83,23 @@ class SWEAgent:
             print(f"\n--- Turn {turn + 1} ---")
             print(response[:300])
 
-            # Parse tool call
-            action, args_text = self._parse_action(response)
+            # Parse tool calls (support multiple per turn = parallel execution)
+            actions = self._parse_actions(response)
 
-            if action == "finish":
-                print(f"\n✅ Agent finished: {args_text[:200]}")
+            if not actions:
+                actions = [("finish", "Task appears complete or unclear.")]
+
+            finished = False
+            for action, args_text in actions:
+                if action == "finish":
+                    print(f"\n✅ Agent finished: {args_text[:200]}")
+                    finished = True
+                    break
+
+                result = self._execute_tool(action, args_text)
+                messages.append({"role": "user", "content": f"Result:\n{result[:2000]}"})
+
+            if finished:
                 return {
                     "instance_id": instance_id,
                     "turns": turn + 1,
@@ -95,9 +107,6 @@ class SWEAgent:
                     "patch": self._get_patch(),
                     "success": True,
                 }
-
-            result = self._execute_tool(action, args_text)
-            messages.append({"role": "user", "content": f"Result:\n{result[:2000]}"})
 
         return {
             "instance_id": instance_id,
@@ -120,6 +129,22 @@ class SWEAgent:
                 parts.append(f"<|im_start|>assistant\n{content}<|im_end|>")
         parts.append("<|im_start|>assistant\n")
         return "\n".join(parts)
+
+    def _parse_actions(self, text: str) -> list[tuple[str, str]]:
+        """Parse ALL tool calls from model output (for parallel execution).
+
+        Supports multiple ```tool\nargs``` blocks in one response.
+        """
+        actions = []
+        for m in re.finditer(r'```(\w+)\s*\n(.*?)```', text, re.DOTALL):
+            actions.append((m.group(1), m.group(2).strip()))
+
+        # Fallback: <tool>args</tool> blocks
+        if not actions:
+            for m in re.finditer(r'<(\w+)>(.*?)</\w+>', text, re.DOTALL):
+                actions.append((m.group(1), m.group(2).strip()))
+
+        return actions
 
     def _parse_action(self, text: str):
         """Parse tool calls from model output."""
