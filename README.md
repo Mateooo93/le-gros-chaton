@@ -18,6 +18,26 @@ other frontier models on Terminal-Bench, SWE-Bench, and coding benchmarks.
 | Quantile Balancing | Kimi K3 | Better MoE routing |
 | Routng-Free MoE | arXiv 2604.00801 | Next-gen MoE design |
 
+## The local-rivalry stack (Qwen3.5-9B, 4-bit, runs locally)
+
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| Train | `train_qwen.py` | SFT on Fable5 (160K) + GRPO |
+| Data | `filter_dataset.py` | Quality filtering |
+| Data | `distill_reasoning.py` | Learn from big-model reasoning |
+| Data | `agent_swe.py --selfplay` | Self-play bug inject/fix |
+| Data | `agent_traces.jsonl` | Learn from own successful runs |
+| Agent | `agent_swe.py --tdd` | Test-first repair loop |
+| Agent | recovery + context mgmt + tool cap | Robustness |
+| Inference | `vote_solutions.py` | Verifier/LLM-judge voting |
+| Serve | `serve_qwen.py` | Local 4-bit HTTP + chat |
+| Measure | `eval_toolcalls.py` | Tool-call format accuracy |
+| Measure | `eval_swebench.py` | Real GitHub issues |
+| Track | `benchmark_tracker.py` | Results + trends |
+
+**Baseline:** Qwen3.5-9B = 9.2% Terminal-Bench 2.0. Target: 25-35%.
+See `docs/BENCHMARK_TARGETS.md` and `docs/TRAINING_PLAN.md`.
+
 ## Start here
 
 **Read [`context/`](context/) first** — it's the single source of truth. In order:
