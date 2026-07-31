@@ -120,6 +120,8 @@ def main():
     parser.add_argument("--ckpt", default=None, help="LoRA adapter dir")
     parser.add_argument("--prompt", default=None, help="CLI mode: generate once")
     parser.add_argument("--serve", action="store_true", help="HTTP server mode")
+    parser.add_argument("--interactive", action="store_true",
+                        help="Interactive chat mode")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--max-new", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.7)
@@ -135,6 +137,33 @@ def main():
 
     if args.serve:
         serve(model, tokenizer, port=args.port)
+    elif args.interactive:
+        print("[serve] Interactive mode. Type 'quit' to exit.")
+        print("Type 'clear' to reset conversation.\n")
+        history = []
+        while True:
+            user = input(">>> ")
+            if user.strip().lower() in ("quit", "exit"):
+                break
+            if user.strip().lower() == "clear":
+                history = []
+                print("(conversation cleared)")
+                continue
+            if not user.strip():
+                continue
+            history.append({"role": "user", "content": user})
+            # Simple 2-turn context window for the local model
+            prompt_msgs = history[-6:]
+            prompt = "".join(
+                f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n"
+                for m in prompt_msgs
+            ) + "<|im_start|>assistant\n"
+            t0 = time.time()
+            text = generate(model, tokenizer, prompt, args.max_new, args.temperature)
+            elapsed = time.time() - t0
+            print(f"  {text}")
+            print(f"  [{elapsed:.1f}s]\n")
+            history.append({"role": "assistant", "content": text})
     elif args.prompt:
         t0 = time.time()
         text = generate(model, tokenizer, args.prompt, args.max_new, args.temperature)
@@ -142,7 +171,7 @@ def main():
         print(text)
         print(f"\n[{elapsed:.1f}s]")
     else:
-        print("[serve] Provide --prompt or --serve")
+        print("[serve] Provide --prompt, --interactive, or --serve")
 
 
 if __name__ == "__main__":
