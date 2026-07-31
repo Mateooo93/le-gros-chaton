@@ -172,19 +172,30 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
 
 
 def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
-               n_steps: int = 200, group_size: int = 4):
-    """GRPO with proportional rewards (verifier-based)."""
+               n_steps: int = 200, group_size: int = 4,
+               batch_size: int = 2, max_new: int = 256,
+               lr: float = 2e-5, save_every: int = 50):
+    """GRPO with proportional rewards (verifier-based).
+
+    Args:
+        n_steps: Total training steps
+        group_size: Samples per problem (GRPO group)
+        batch_size: Problems per step (memory-limited on T4)
+        max_new: Max tokens to generate per sample
+        lr: Learning rate
+        save_every: Checkpoint every N steps (Kaggle 9hr session safety)
+    """
     from verify.verifier import Problem, verify
     from torch.optim import AdamW
 
-    optimizer = AdamW(model.parameters(), lr=2e-5)
+    optimizer = AdamW(model.parameters(), lr=lr)
     device = model.device
 
     for step in range(n_steps):
         optimizer.zero_grad()
         total_loss = 0.0
 
-        for prob in problems[:2]:  # batch_size=2 for memory
+        for prob in problems[:batch_size]:
             p = Problem(id=prob.id, prompt=prob.prompt,
                        tests=prob.tests, entry_point=prob.entry_point)
 
@@ -194,7 +205,7 @@ def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
 
             with torch.no_grad():
                 out = model.generate(
-                    **prompts_exp, max_new_tokens=256,
+                    **prompts_exp, max_new_tokens=max_new,
                     temperature=1.0, top_p=0.95, do_sample=True,
                     pad_token_id=tokenizer.eos_token_id,
                 )
@@ -228,6 +239,13 @@ def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
         if step % 20 == 0:
             print(f"[train] RLVR step {step}: loss={total_loss:.4f}")
 
+        # Checkpoint to survive Kaggle 9hr session limits
+        if (step + 1) % save_every == 0:
+            ckpt_dir = f"{out_dir}_step{step+1}"
+            model.save_pretrained(ckpt_dir)
+            tokenizer.save_pretrained(ckpt_dir)
+            print(f"[train] Checkpoint saved to {ckpt_dir}")
+
     model.save_pretrained(out_dir)
     tokenizer.save_pretrained(out_dir)
     print(f"[train] Saved RLVR model to {out_dir}")
@@ -243,6 +261,12 @@ def main():
     parser.add_argument("--sft-epochs", type=int, default=1)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--rlvr-steps", type=int, default=200)
+    parser.add_argument("--group-size", type=int, default=4,
+                        help="GRPO samples per problem")
+    parser.add_argument("--rlvr-lr", type=float, default=2e-5,
+                        help="RLVR learning rate")
+    parser.add_argument("--rlvr-max-new", type=int, default=256,
+                        help="Max tokens per RLVR generation")
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--max-length", type=int, default=512)
     parser.add_argument("--output", default="qwen_coding_agent")
@@ -281,6 +305,9 @@ def main():
             model, tokenizer, problems,
             out_dir=f"{args.output}_rlvr",
             n_steps=args.rlvr_steps,
+            group_size=args.group_size,
+            lr=args.rlvr_lr,
+            max_new=args.rlvr_max_new,
         )
 
     # Final save
