@@ -158,6 +158,8 @@ def main():
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--4bit", dest="four_bit", action="store_true", help="4-bit loading")
     parser.add_argument("--output", default=None, help="Results JSON path")
+    parser.add_argument("--record", action="store_true",
+                        help="Record result to benchmark_tracker.py")
     args = parser.parse_args()
 
     print(f"[eval_qwen] Loading {args.model}...")
@@ -173,6 +175,12 @@ def main():
             with open(args.output, "w") as f:
                 json.dump(results, f, indent=2)
             print(f"Saved results to {args.output}")
+
+        if args.record:
+            from benchmark_tracker import add_result
+            avg = sum(r["pass@1"] for r in results) / max(len(results), 1) * 100
+            add_result("humaneval", round(avg, 1),
+                       model=args.ckpt or args.model, n_samples=args.n_samples)
 
     elif args.mode == "agent":
         from eval.humaneval_loader import load as load_humaneval
