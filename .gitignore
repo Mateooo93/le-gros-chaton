@@ -41,3 +41,6 @@ build/
 verify/_runs/*.py
 training/
 .pi-glla/
+
+# Root-level notebook copies (use notebooks/ dir)
+chaton_*.ipynb
