@@ -41,6 +41,25 @@ class Problem:
     entry_point: str | None = None
 
 
+def _check_code(problem: Problem, solution: str) -> tuple[str, list[str]]:
+    """Assemble runnable check code + command for the problem's language.
+
+    Supports Python (HumanEval-style) plus basic JS and Go via runtime
+    detection.  Falls back to Python if the runtime is unavailable.
+    """
+    lang = problem.language.lower()
+    if lang == "python":
+        return _python_check_code(problem, solution), ["python"]
+    if lang in ("javascript", "js", "typescript", "ts"):
+        code = f"{solution}\n{problem.tests}\nconsole.log('OK');\n"
+        return code, ["node"]
+    if lang in ("go", "golang"):
+        code = f"package main\nimport (\n\t\"fmt\"\n)\n{solution}\n{problem.tests}\nfmt.Println(\"OK\")\n"
+        return code, ["go", "run"]
+    # Unknown language -> fall back to Python runner
+    return _python_check_code(problem, solution), ["python"]
+
+
 @dataclass
 class Verdict:
     """Result of verifying one candidate."""
@@ -76,13 +95,15 @@ def verify(problem: Problem, solution: str, timeout: float = 15.0,
     cwd = cwd or os.path.join(PROJ_ROOT, "verify", "_runs")
     os.makedirs(cwd, exist_ok=True)
 
-    code = _python_check_code(problem, solution)
+    code, runner = _check_code(problem, solution)
+    ext = "js" if problem.language.lower() in ("javascript", "js", "typescript", "ts") else "go" if problem.language.lower() in ("go", "golang") else "py"
     tag = hashlib.md5(problem.id.encode()).hexdigest()[:12] if hasattr(hashlib, 'md5') else problem.id.replace('/', '_')
-    run_file = os.path.join(cwd, f"_sol_{tag}.py")
+    run_file = os.path.join(cwd, f"_sol_{tag}.{ext}")
     with open(run_file, "w") as f:
         f.write(code)
 
-    r = run_cmd(f"python {os.path.basename(run_file)}", timeout=timeout, cwd=cwd)
+    cmd = " ".join(runner + [os.path.basename(run_file)])
+    r = run_cmd(cmd, timeout=timeout, cwd=cwd)
     out = r.combined_truncated
     rc = r.rc
 
