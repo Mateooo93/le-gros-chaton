@@ -76,6 +76,45 @@ python train_qwen.py --sft-only --limit 10000
 python train_qwen.py --sft-epochs 2 --batch-size 4
 ```
 
+## The full local-rivalry stack (9B)
+
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| Train | `train_qwen.py` | SFT on Fable5 + GRPO |
+| Data | `filter_dataset.py` | Quality filtering |
+| Data | `distill_reasoning.py` | Learn reasoning from big models |
+| Data | `agent_swe.py --selfplay` | Self-play bug inject/fix pairs |
+| Agent | `agent_swe.py --tdd` | Test-first repair loop |
+| Agent | recovery + context mgmt | Failure recovery, sliding window |
+| Inference | `vote_solutions.py` | Verifier/LLM-judge voting |
+| Serve | `serve_qwen.py` | Local 4-bit HTTP server |
+| Measure | `eval_toolcalls.py` | Tool-call format accuracy |
+| Measure | `eval_swebench.py` | Real GitHub issue patches |
+| Track | `benchmark_tracker.py` | Results registry + trends |
+
+## Benchmark baseline
+
+Qwen3.5-9B scores **9.2%** on Terminal-Bench 2.0.
+Our target: **25-35%** (comparable to Qwen3.6-35B-A3B at 24.6%).
+See `docs/BENCHMARK_TARGETS.md`.
+
+## One-command pipeline
+
+```bash
+# 1. Generate training data (needs ANTHROPIC_API_KEY for distillation)
+python distill_reasoning.py --problems humaneval --limit 200
+
+# 2. Filter + train
+python train_qwen.py --sft-only --limit 10000
+
+# 3. Evaluate and record
+python eval_qwen.py --model Qwen/Qwen3.5-9B --ckpt qwen_coding_agent --record
+python benchmark_tracker.py --trend humaneval
+
+# 4. Serve locally
+python serve_qwen.py --ckpt qwen_coding_agent --serve
+```
+
 ## Installation
 
 ```bash
