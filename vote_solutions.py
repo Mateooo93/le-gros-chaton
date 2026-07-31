@@ -43,24 +43,34 @@ def sample_solutions(model, tokenizer, prompt: str, n: int, max_new: int = 256,
 
 
 def vote(problems, model, tokenizer, n_samples: int = 8, max_new: int = 256,
-         device: str = "cuda", verbose: bool = False) -> dict:
+         device: str = "cuda", verbose: bool = False, judge: bool = False) -> dict:
     """Best-of-N with verifier voting.
 
     For each problem:
     1. Sample N solutions at varied temperatures
-    2. Verify each against the test suite
+    2. Verify each against the test suite (or LLM judge if --judge)
     3. Pick the first fully-passing solution (else best partial)
     """
     from verify.verifier import Problem, verify
+
+    judge_client = None
+    if judge:
+        import anthropic
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            print("[vote] --judge requires ANTHROPIC_API_KEY")
+            judge = False
+        else:
+            judge_client = anthropic.Anthropic(api_key=api_key)
 
     results = []
     total_solved = 0
 
     for i, prob in enumerate(problems):
-        pid = prob.id
-        prompt = prob.prompt
-        tests = prob.tests
-        entry_point = prob.entry_point
+        pid = prob.id if hasattr(prob, "id") else prob.get("id", f"problem_{i}")
+        prompt = prob.prompt if hasattr(prob, "prompt") else prob.get("prompt", "")
+        tests = getattr(prob, "tests", "") or prob.get("tests", "")
+        entry_point = getattr(prob, "entry_point", None) or prob.get("entry_point")
 
         print(f"[vote] {i+1}/{len(problems)} {pid}...")
 
@@ -68,14 +78,21 @@ def vote(problems, model, tokenizer, n_samples: int = 8, max_new: int = 256,
             model, tokenizer, prompt, n_samples, max_new, device,
         )
 
-        p = Problem(id=pid, prompt=prompt, tests=tests, entry_point=entry_point)
+        p = Problem(id=str(pid), prompt=prompt, tests=tests, entry_point=entry_point)
 
         best = None
         best_score = -1.0
         for j, sol in enumerate(solutions):
-            v = verify(p, sol)
-            score = v.n_pass / max(v.n_total, 1) if v.n_total > 0 else 0.0
-            if v.passed:
+            if judge_client is not None:
+                from llm_judge import judge
+                r = judge(judge_client, prompt, sol)
+                score = float(r.get("score", 0.0))
+                passed = bool(r.get("passed", False))
+            else:
+                v = verify(p, sol)
+                score = v.n_pass / max(v.n_total, 1) if v.n_total > 0 else 0.0
+                passed = v.passed
+            if passed:
                 best = (sol, j, score, True)
                 break  # found fully passing solution
             if score > best_score:
@@ -128,6 +145,8 @@ def main():
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--max-new", type=int, default=256)
     parser.add_argument("--4bit", dest="four_bit", action="store_true")
+    parser.add_argument("--judge", action="store_true",
+                        help="Use LLM judge for tasks without test suites")
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--output", default="vote_results.json")
     args = parser.parse_args()
@@ -143,7 +162,7 @@ def main():
     data = vote(
         problems, model, tokenizer,
         n_samples=args.n_samples, max_new=args.max_new,
-        device=device, verbose=args.verbose,
+        device=device, verbose=args.verbose, judge=args.judge,
     )
 
     with open(args.output, "w") as f:
