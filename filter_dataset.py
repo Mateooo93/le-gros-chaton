@@ -110,6 +110,8 @@ def main():
                         help="Max assistant response chars")
     parser.add_argument("--save-json", action="store_true",
                         help="Also save as JSONL for inspection")
+    parser.add_argument("--dedup", action="store_true",
+                        help="Remove near-duplicate examples (by user message hash)")
     args = parser.parse_args()
 
     ds = load_dataset(limit=args.limit)
@@ -127,6 +129,22 @@ def main():
             keep_indices.append(i)
         else:
             reasons[reason] = reasons.get(reason, 0) + 1
+
+    # Optional: dedup by user message (many Fable5 rows share templates)
+    if args.dedup:
+        seen = set()
+        unique_idx = []
+        for i in keep_indices:
+            example = ds[i]
+            user_msgs = [m.get("content", "") for m in example.get("messages", [])
+                         if m.get("role") == "user"]
+            key = user_msgs[0][:200] if user_msgs else str(i)
+            if key not in seen:
+                seen.add(key)
+                unique_idx.append(i)
+        removed_dup = len(keep_indices) - len(unique_idx)
+        keep_indices = unique_idx
+        print(f"[filter] Dedup removed {removed_dup} near-duplicate examples")
 
     filtered = ds.select(keep_indices)
 
