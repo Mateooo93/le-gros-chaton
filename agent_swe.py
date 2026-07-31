@@ -306,6 +306,46 @@ class SWEAgent:
             return ""
 
 
+def collect_selfplay_data(model, tokenizer, task: str, repo_dir: str,
+                          device: str = "cuda", max_pairs: int = 5):
+    """Collect self-play training data: the model injects bugs then fixes them.
+
+    SSR (Self-Play SWE-RL, ICML 2025) trains agents by generating
+    bug-inject → bug-fix pairs from real codebases with zero human labels.
+    Saves (task, buggy_code, fixed_code) pairs to selfplay_data.json.
+    """
+    import json as _json
+    from agent_qwen import generate
+
+    pairs = []
+    for i in range(max_pairs):
+        # Ask model to introduce a subtle bug into the repo
+        inject_prompt = f"""In {repo_dir}, introduce a subtle bug into one source file.
+Do NOT break syntax. Make the bug a logic error (wrong comparison, off-by-one,
+reversed condition). Output only the modified code."""
+        buggy = generate(model, tokenizer, inject_prompt, max_new=256, temperature=0.8)
+
+        # Ask model to find and fix it
+        fix_prompt = f"""There is a subtle logic bug in this code. Find and fix it.
+
+CODE:
+{buggy[:1500]}
+
+Output only the fixed code."""
+        fixed = generate(model, tokenizer, fix_prompt, max_new=256, temperature=0.3)
+
+        pairs.append({
+            "task": task,
+            "buggy": buggy,
+            "fixed": fixed,
+        })
+        print(f"[selfplay] pair {i+1}/{max_pairs} collected")
+
+    with open("selfplay_data.json", "w") as f:
+        _json.dump(pairs, f, indent=2)
+    print(f"[selfplay] Saved {len(pairs)} pairs to selfplay_data.json")
+
+
 def main():
     parser = argparse.ArgumentParser(description="SWE-bench agent")
     parser.add_argument("--model", default="Qwen/Qwen3.5-9B")
@@ -316,6 +356,8 @@ def main():
     parser.add_argument("--4bit", dest="four_bit", action="store_true")
     parser.add_argument("--tdd", action="store_true",
                         help="Test-Driven Development loop: test first, then fix, then verify")
+    parser.add_argument("--selfplay", action="store_true",
+                        help="Collect self-play training data (bug inject + fix pairs)")
     args = parser.parse_args()
 
     # Load model
@@ -332,6 +374,10 @@ def main():
     else:
         issue = args.issue or "Fix the bug"
         repo = args.repo or "."
+
+    if args.selfplay:
+        collect_selfplay_data(model, tokenizer, issue, repo, device)
+        return
 
     agent = SWEAgent(model, tokenizer, repo, device=device, tdd=args.tdd)
     result = agent.run(issue)
