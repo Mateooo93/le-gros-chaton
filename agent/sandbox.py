@@ -31,6 +31,18 @@ DANGEROUS: ClassVar[list[str]] = [
     r"\bshutdown\b",
     r"\breboot\b",
     r":\(\)\s*\{.*\};",            # fork bomb
+    # --- Expanded for autonomous agent use ---
+    r"\bmkfs\.[a-z0-9]+\b",         # mkfs.ext4 etc
+    r"\bchmod\s+-R\s+777\s+/",     # chmod -R 777 /
+    r"\bchown\s+-R\s+[^ ]+\s+/",   # chown -R to root
+    r">\s*/etc/(passwd|shadow|sudoers)",   # overwrite system files
+    r"\bmount\b",                    # mount operations
+    r"\bumount\b",
+    r"\bparted\b|\bfdisk\b",        # disk partitioning
+    r"\bkillall\b|\bpkill\s+-9\b", # kill everything
+    r"\bopenssl\s+enc\s+-d",        # decrypting system secrets
+    r"\bcurl\s+[^|]*\|\s*(sh|bash)\b",  # curl | sh (supply-chain)
+    r"\bwget\s+[^|]*\|\s*(sh|bash)\b",
 ]
 _DANGER_RE: list[re.Pattern] = [re.compile(p) for p in DANGEROUS]
 
