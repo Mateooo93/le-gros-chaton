@@ -98,6 +98,43 @@ def format_chat(example: dict) -> str:
     return "\n".join(parts) + "\n<|im_start|>assistant\n"
 
 
+def load_agent_traces(limit: int | None = None) -> list[dict]:
+    """Load agent interaction traces (agent_traces.jsonl) as training data."""
+    import json as _json
+
+    path = os.path.join(PROJ_ROOT, "agent_traces.jsonl")
+    if not os.path.exists(path):
+        print("[train] No agent_traces.jsonl found — skipping")
+        return []
+
+    print(f"[train] Loading agent traces from {path}...")
+    examples = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                trace = _json.loads(line)
+            except _json.JSONDecodeError:
+                continue
+            if trace.get("success"):
+                # Convert successful traces to chat format
+                steps = trace.get("steps", [])
+                if steps:
+                    convo = "\n".join(s.get("response", "") for s in steps)
+                    examples.append({
+                        "messages": [
+                            {"role": "user", "content": trace.get("instance_id", "task")},
+                            {"role": "assistant", "content": convo[:4000]},
+                        ]
+                    })
+    if limit:
+        examples = examples[:limit]
+    print(f"[train] Loaded {len(examples)} trace examples")
+    return examples
+
+
 def load_fable5_dataset(limit: int | None = None) -> list[dict]:
     """Load the Fable5 agentic coding SFT dataset from HuggingFace."""
     from datasets import load_dataset
@@ -285,7 +322,13 @@ def main():
         print(f"\n{'='*50}")
         print(f"[train] PHASE 1: SFT on {args.dataset}")
         print(f"{'='*50}")
-        dataset = load_fable5_dataset(limit=args.limit)
+        fable = load_fable5_dataset(limit=args.limit)
+        traces = load_agent_traces(limit=min(args.limit or 5000, 5000))
+        dataset = fable
+        if traces:
+            print(f"[train] Merging {len(traces)} agent traces with Fable5 data")
+            # Keep it simple: traces first, then Fable5
+            dataset = {"messages": list(traces) + list(fable)}
         sft_path = train_sft(
             model, tokenizer, dataset,
             out_dir=f"{args.output}_sft",
