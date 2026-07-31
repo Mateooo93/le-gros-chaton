@@ -40,3 +40,4 @@ build/
 # Verifier temp files (generated during evaluation)
 verify/_runs/*.py
 training/
+.pi-glla/
