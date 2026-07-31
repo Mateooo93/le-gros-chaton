@@ -156,6 +156,44 @@ def distill(problems: list, out_path: str, model: str = "claude-sonnet-4-2025051
     return results
 
 
+def verify_existing(path: str):
+    """Re-verify previously distilled solutions (no API cost)."""
+    import json as _json
+    from verify.verifier import Problem, verify
+
+    with open(path) as f:
+        data = _json.load(f)
+
+    print(f"[distill] Re-verifying {len(data)} existing examples...")
+    passed = 0
+    for i, ex in enumerate(data):
+        pid = ex.get("problem_id", f"problem_{i}")
+        prompt = ex["messages"][0]["content"]
+        solution = ex["messages"][1]["content"]
+        # Extract just the code (strip <reasoning> if present)
+        import re
+        m = re.search(r'<reasoning>.*?</reasoning>\s*', solution, re.DOTALL)
+        code = solution
+        if m:
+            code = solution[m.end():]
+        # Best-effort: run if tests available
+        tests = ex.get("tests", "")
+        if not tests:
+            continue
+        p = Problem(id=str(pid), prompt=prompt, tests=tests,
+                    entry_point=ex.get("entry_point"))
+        v = verify(p, code)
+        ex["passed"] = v.passed
+        ex["n_pass"] = v.n_pass
+        ex["n_total"] = v.n_total
+        if v.passed:
+            passed += 1
+
+    with open(path, "w") as f:
+        _json.dump(data, f, indent=2)
+    print(f"[distill] {passed}/{len(data)} verified passing. Updated {path}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Distill reasoning from big models")
     parser.add_argument("--problems", default="humaneval",
@@ -164,7 +202,13 @@ def main():
     parser.add_argument("--output", default="reasoning_data.json")
     parser.add_argument("--model", default="claude-sonnet-4-20250514")
     parser.add_argument("--temperature", type=float, default=0.3)
+    parser.add_argument("--verify-only", default=None,
+                        help="Re-verify existing distillation JSON without API calls")
     args = parser.parse_args()
+
+    if args.verify_only:
+        verify_existing(args.verify_only)
+        return
 
     print(f"[distill] Loading problems from {args.problems}...")
     problems = load_problems(args.problems, limit=args.limit)
