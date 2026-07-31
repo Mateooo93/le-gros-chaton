@@ -75,6 +75,63 @@ def judge_batch(client, pairs: list[dict], model: str = "claude-sonnet-4-2025051
     return results
 
 
+def self_judge(model_name: str, json_in, task, file, output):
+    """Use our own Qwen model as judge — fully local, zero API cost."""
+    from eval_qwen import load_qwen
+
+    print(f"[judge] Loading {model_name} as self-judge...")
+    model, tokenizer = load_qwen(model_name)
+    import torch
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    pairs = []
+    if json_in:
+        with open(json_in) as f:
+            import json as _json
+            pairs = _json.load(f)
+    elif task:
+        sol = None
+        if file:
+            with open(file) as f:
+                sol = f.read()
+        pairs = [{"task": task, "solution": sol or ""}]
+
+    results = []
+    for pair in pairs:
+        judge_prompt = f"""You are evaluating a solution. Score it 0.0 to 1.0 and decide if it passes.
+
+TASK:
+{pair.get('task', '')[:1500]}
+
+SOLUTION:
+{pair.get('solution', '')[:2000]}
+
+Respond with JSON: {{"score": 0.0-1.0, "passed": true/false, "reason": "short"}}"""
+        inputs = tokenizer(judge_prompt, return_tensors="pt").to(device)
+        with torch.no_grad():
+            out = model.generate(**inputs, max_new_tokens=200,
+                                 temperature=0.0,
+                                 pad_token_id=tokenizer.eos_token_id)
+        text = tokenizer.decode(out[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+        import re, json as _json
+        m = re.search(r'\{.*\}', text, re.DOTALL)
+        if m:
+            try:
+                result = _json.loads(m.group(0))
+            except Exception:
+                result = {"score": 0.0, "passed": False, "reason": text[:100]}
+        else:
+            result = {"score": 0.0, "passed": False, "reason": text[:100]}
+        result["task"] = str(pair.get("task", ""))[:80]
+        results.append(result)
+        print(f"[judge] {len(results)}/{len(pairs)} score={result.get('score', 0):.2f}")
+
+    with open(output, "w") as f:
+        import json as _json
+        _json.dump(results, f, indent=2)
+    print(f"[judge] Saved {len(results)} results to {output} (local self-judge)")
+
+
 def main():
     parser = argparse.ArgumentParser(description="LLM-as-judge grader")
     parser.add_argument("--task", default=None, help="Task description")
@@ -84,7 +141,13 @@ def main():
                         help="JSON file with [{task, solution}] list")
     parser.add_argument("--model", default="claude-sonnet-4-20250514")
     parser.add_argument("--output", default="judge_results.json")
+    parser.add_argument("--self-judge", default=None,
+                        help="Use our own Qwen model as judge (no API key needed)")
     args = parser.parse_args()
+
+    if args.self_judge:
+        self_judge(args.self_judge, args.json_in, args.task, args.file, args.output)
+        return
 
     import anthropic
     api_key = os.environ.get("ANTHROPIC_API_KEY")
