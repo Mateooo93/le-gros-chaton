@@ -111,6 +111,20 @@ def compare(run_a: str, run_b: str):
                   f"{rb['pass_rate']:<10.1f} {d:+.1f} {arrow}")
 
 
+def prune_failed():
+    """Remove entries with pass_rate == 0.0 (crashed/failed runs)."""
+    results = load_all()
+    kept = [r for r in results if r.get("pass_rate", 0) > 0]
+    removed = len(results) - len(kept)
+    if removed:
+        with open(TRACKER, "w") as f:
+            for r in kept:
+                f.write(json.dumps(r) + "\n")
+        print(f"[tracker] Removed {removed} failed runs (pass_rate=0.0)")
+    else:
+        print("[tracker] No failed runs to remove")
+
+
 def export_csv(path: str = "benchmark_results.csv"):
     """Export all results as CSV for plotting."""
     import csv as _csv
@@ -140,6 +154,8 @@ def main():
                         help="Compare two run IDs")
     parser.add_argument("--csv", nargs="?", const="benchmark_results.csv",
                         help="Export results to CSV (for plotting)")
+    parser.add_argument("--prune", action="store_true",
+                        help="Remove entries with 0.0 pass_rate (failed runs)")
     args = parser.parse_args()
 
     if args.add:
@@ -155,7 +171,9 @@ def main():
         compare(*args.compare)
     if args.csv:
         export_csv(args.csv)
-    if not (args.add or args.list or args.trend or args.compare or args.csv):
+    if args.prune:
+        prune_failed()
+    if not (args.add or args.list or args.trend or args.compare or args.csv or args.prune):
         parser.print_help()
 
 
