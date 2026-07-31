@@ -41,6 +41,21 @@ Rules:
 - Read files before editing them
 - Run tests after making changes
 - Generate a proper git diff
+
+EXAMPLE — you must emit tool calls EXACTLY like this:
+
+```list_dir
+src
+```
+```read_file
+src/main.py
+```
+```run_test
+pytest tests/test_main.py
+```
+```finish
+Fixed the off-by-one error in src/main.py
+```
 """
 
 TDD_PROMPT = """You are a TDD software engineer fixing bugs in a codebase. You have access to these tools:
