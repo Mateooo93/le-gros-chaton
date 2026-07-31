@@ -110,6 +110,8 @@ def main():
                         help="Max assistant response chars")
     parser.add_argument("--save-json", action="store_true",
                         help="Also save as JSONL for inspection")
+    parser.add_argument("--push-hf", default=None,
+                        help="Repo ID to push filtered dataset to HF Hub")
     parser.add_argument("--dedup", action="store_true",
                         help="Remove near-duplicate examples (by user message hash)")
     args = parser.parse_args()
@@ -173,6 +175,18 @@ def main():
             for e in filtered:
                 f.write(json.dumps(e) + "\n")
         print(f"[filter] Also saved JSONL to {args.output}.jsonl")
+
+    if args.push_hf:
+        import os
+        token = os.environ.get("HF_TOKEN")
+        if not token:
+            print("[filter] --push-hf requires HF_TOKEN env var")
+        else:
+            try:
+                filtered.push_to_hub(args.push_hf, token=token, private=True)
+                print(f"[filter] Pushed filtered dataset to {args.push_hf}")
+            except Exception as e:
+                print(f"[filter] HF push failed: {e}")
 
 
 if __name__ == "__main__":
