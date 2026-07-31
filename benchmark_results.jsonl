@@ -1,1 +1,2 @@
 {"timestamp": "2026-07-31 11:54:05", "run_id": "20260731_115405", "benchmark": "humaneval", "pass_rate": 35.2, "model": "qwen_sft", "n_samples": 1}
+{"timestamp": "2026-07-31 11:59:25", "run_id": "20260731_115925", "benchmark": "humaneval", "pass_rate": 9.2, "model": "Qwen3.5-9B-baseline", "n_samples": 1}
