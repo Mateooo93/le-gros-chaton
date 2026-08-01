@@ -206,12 +206,13 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
         desc="Tokenizing",
     )
 
-    # Steps per 20% checkpoint: effective batch = batch_size * grad_accum.
+    # Steps per 20% checkpoint: effective batch = batch_size * grad_accum * n_gpus.
+    n_dev = torch.cuda.device_count() if torch is not None and torch.cuda.is_available() else 1
     n_examples = len(tokenized)
-    eff_batch = batch_size * 8  # gradient_accumulation_steps fixed at 8 below
+    eff_batch = batch_size * 8 * n_dev  # gradient_accumulation_steps fixed at 8 below
     total_steps = max(1, (n_examples + eff_batch - 1) // eff_batch) * epochs
     save_every = max(1, total_steps // 5)  # 5 checkpoints = every 20%
-    print(f"[train] {n_examples} examples | eff_batch={eff_batch} "
+    print(f"[train] {n_examples} examples | {n_dev} GPU(s) | eff_batch={eff_batch} "
           f"| {total_steps} steps | checkpoint every {save_every} steps (~20%)")
 
     training_args = TrainingArguments(
@@ -248,8 +249,20 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
             ckpt_repo = None
 
     class HubUploadCallback(TrainerCallback):
-        """Upload each saved checkpoint dir to the HF ckpt repo."""
+        """Upload each saved checkpoint dir to the HF ckpt repo, and force a
+        save at least every SAVE_FLOOR_SEC so a slow run never goes hours
+        without a checkpoint (Kaggle disconnects lose progress otherwise)."""
+        SAVE_FLOOR_SEC = 3600  # safety net: checkpoint at least every hour
+
+        def __init__(self):
+            self.last_save_t = time.time()
+
+        def on_step_end(self, args, state, control, **kwargs):
+            if time.time() - self.last_save_t >= self.SAVE_FLOOR_SEC:
+                control.should_save = True  # forces _save_checkpoint this step
+
         def on_save(self, args, state, control, **kwargs):
+            self.last_save_t = time.time()
             if not ckpt_repo:
                 return
             ckpt = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
@@ -382,19 +395,25 @@ def resolve_sft_ckpt(resume: str | None) -> str | None:
         if cks:
             return os.path.join(resume, cks[-1])
         return resume
-    # Treat as HF repo id: download, then find latest checkpoint-*
+    # Treat as HF repo id: list remote checkpoints, download only the newest.
     try:
-        from huggingface_hub import snapshot_download
+        from huggingface_hub import snapshot_download, HfApi
+        api = HfApi(token=os.environ.get("HF_TOKEN", ""))
+        dirs = [f for f in api.list_repo_files(repo_id=resume)
+                if "/" in f and f.split("/")[0].startswith("checkpoint-")]
+        ck_subdirs = sorted({f.split("/")[0] for f in dirs},
+                            key=lambda d: int(d.split("-")[1]))
+        if not ck_subdirs:
+            print(f"[train] No checkpoints in {resume} yet — starting fresh")
+            return None
+        latest = ck_subdirs[-1]
+        print(f"[train] Resuming SFT from {resume}/{latest}")
         local = snapshot_download(
             repo_id=resume, token=os.environ.get("HF_TOKEN", ""),
+            allow_patterns=[f"{latest}/**"],
             ignore_patterns=["*.bin", "optimizer.pt"],
         )
-        cks = sorted([d for d in os.listdir(local)
-                      if d.startswith("checkpoint-")],
-                     key=lambda d: int(d.split("-")[1]))
-        if cks:
-            return os.path.join(local, cks[-1])
-        return None
+        return os.path.join(local, latest)
     except Exception as e:
         print(f"[train] Could not resolve SFT checkpoint {resume}: {e}")
         return None
