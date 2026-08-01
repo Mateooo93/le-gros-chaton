@@ -10,5 +10,5 @@
   "competition_sources": [],
   "dataset_sources": [],
   "kernel_sources": [],
-  "gpu_type": "t4"
+  "machine_shape": "NvidiaTeslaT4"
 }

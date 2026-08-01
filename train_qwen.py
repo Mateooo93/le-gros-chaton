@@ -26,12 +26,22 @@ if PROJ_ROOT not in sys.path:
 
 
 def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
-    """Load model with 4-bit QLoRA, optimized for L4 24GB."""
-    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    """Load Qwen3.5-9B in 4-bit QLoRA, optimized for T4/L4 16-24GB.
 
-# Qwen3.5 requires transformers >= 4.49. Upgrade if needed:
-#   pip install -U git+https://github.com/huggingface/transformers.git
-    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+    Qwen/Qwen3.5-9B is a hybrid-attention vision-language model (model_type
+    'qwen3_5', Qwen3_5ForConditionalGeneration) with mixed full-attention and
+    linear-attention (gated-deltanet) layers, released only as a VLM checkpoint
+    (weights stored under `model.language_model.*`). On transformers >= 5.14.1
+    `AutoModelForCausalLM` resolves `qwen3_5` to the text-only
+    `Qwen3_5ForCausalLM` ("VLM compatibility" mapping in modeling_auto.py) and
+    `conversion_mapping.py` applies `PrefixChange(prefix_to_remove=
+    "language_model")`, so the text weights load correctly while the vision
+    encoder and MTP heads are dropped. We thus train a plain causal LM on text
+    — no vision encoder in memory, no manual surgery. 4-bit QLoRA targets both
+    attention flavors' linear projections plus the MLP.
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, BitsAndBytesConfig
+    from peft import LoraConfig, get_peft_model
 
     quant = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -47,6 +57,13 @@ def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
 
+    # Sanity: confirm the hybrid-attention VLM config resolves to a text CausalLM.
+    cfg = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+    text_cfg = getattr(cfg, "text_config", cfg)
+    print(f"[train] model_type={getattr(cfg, 'model_type', '?')} "
+          f"text_model_type={getattr(text_cfg, 'model_type', '?')} "
+          f"layers={getattr(text_cfg, 'num_hidden_layers', '?')}")
+
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=quant,
@@ -58,11 +75,20 @@ def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
     if use_lora:
         # Skip prepare_model_for_kbit_training — it converts to fp32 causing OOM on T4.
         # 4-bit QLoRA doesn't need it for LoRA training.
+        # target_modules spans both decoder block types:
+        #   - full_attention (Qwen3_5Attention): q/k/v/o_proj
+        #   - linear_attention (Qwen3_5GatedDeltaNet): in_proj_qkv/a/b/z + out_proj
+        #   - MLP (Qwen3_5MLP): gate/up/down_proj
+        # PEFT silently ignores target_modules that don't exist on a given layer.
         lora_config = LoraConfig(
             r=16,
             lora_alpha=32,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                            "gate_proj", "up_proj", "down_proj"],
+            target_modules=[
+                "q_proj", "k_proj", "v_proj", "o_proj",
+                "gate_proj", "up_proj", "down_proj",
+                "in_proj_qkv", "in_proj_a", "in_proj_b", "in_proj_z",
+                "out_proj",
+            ],
             lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM",
@@ -149,9 +175,17 @@ def load_fable5_dataset(limit: int | None = None) -> list[dict]:
 
 def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
               lr: float = 2e-4, epochs: int = 1, batch_size: int = 4,
-            max_length: int = 2048):
-    """Supervised fine-tuning on the Fable5 dataset."""
-    from transformers import TrainingArguments, Trainer, DataCollatorForSeq2Seq
+            max_length: int = 2048, resume_from_checkpoint: str | None = None):
+    """Supervised fine-tuning on the Fable5 dataset.
+
+    Saves a checkpoint every 20% of the run (plus the final step) and uploads
+    each one to HF Hub so a disconnected Kaggle session never loses progress —
+    the next run resumes from the latest uploaded checkpoint.
+    """
+    from transformers import (
+        TrainingArguments, Trainer, DataCollatorForSeq2Seq, TrainerCallback,
+    )
+    import huggingface_hub as hf_hub
 
     def tokenize_fn(examples):
         texts = [format_chat({"messages": m}) if isinstance(m, list) and len(m) > 0
@@ -172,6 +206,14 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
         desc="Tokenizing",
     )
 
+    # Steps per 20% checkpoint: effective batch = batch_size * grad_accum.
+    n_examples = len(tokenized)
+    eff_batch = batch_size * 8  # gradient_accumulation_steps fixed at 8 below
+    total_steps = max(1, (n_examples + eff_batch - 1) // eff_batch) * epochs
+    save_every = max(1, total_steps // 5)  # 5 checkpoints = every 20%
+    print(f"[train] {n_examples} examples | eff_batch={eff_batch} "
+          f"| {total_steps} steps | checkpoint every {save_every} steps (~20%)")
+
     training_args = TrainingArguments(
         output_dir=out_dir,
         per_device_train_batch_size=batch_size,
@@ -180,8 +222,8 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
         warmup_steps=100,
         num_train_epochs=epochs,
         logging_steps=10,
-        save_steps=500,
-        save_total_limit=2,
+        save_steps=save_every,
+        save_total_limit=10,
         fp16=True,
         remove_unused_columns=False,
         report_to="none",
@@ -190,16 +232,50 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
         optim="paged_adamw_8bit",  # Offloads optimizer states to CPU
     )
 
+    # After every Trainer save, upload the checkpoint to HF Hub so it survives
+    # a Kaggle disconnect. The next run resumes from the latest uploaded one.
+    hf_token = os.environ.get("HF_TOKEN", "")
+    ckpt_repo = None
+    if hf_token:
+        try:
+            api = hf_hub.HfApi(token=hf_token)
+            who = api.whoami()["name"]
+            ckpt_repo = f"{who}/le-gros-chaton-qwen-sft-ckpt"
+            api.create_repo(ckpt_repo, private=True, exist_ok=True)
+            print(f"[train] Checkpoints will upload to HF Hub: {ckpt_repo}")
+        except Exception as e:
+            print(f"[train] HF Hub checkpoint upload disabled: {e}")
+            ckpt_repo = None
+
+    class HubUploadCallback(TrainerCallback):
+        """Upload each saved checkpoint dir to the HF ckpt repo."""
+        def on_save(self, args, state, control, **kwargs):
+            if not ckpt_repo:
+                return
+            ckpt = os.path.join(args.output_dir, f"checkpoint-{state.global_step}")
+            if not os.path.isdir(ckpt):
+                return
+            print(f"[train] Uploading {ckpt} -> {ckpt_repo} ...")
+            try:
+                hf_hub.upload_folder(
+                    folder_path=ckpt, repo_id=ckpt_repo,
+                    token=hf_token, ignore_patterns=["*.bin", "optimizer.pt"],
+                )
+                print(f"[train] ✓ Uploaded checkpoint-{state.global_step}")
+            except Exception as e:
+                print(f"[train] Upload failed (will retry next save): {e}")
+
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=tokenized,
         data_collator=DataCollatorForSeq2Seq(tokenizer, pad_to_multiple_of=8),
+        callbacks=[HubUploadCallback()],
     )
 
     print(f"[train] Starting SFT ({epochs} epoch(s), {lr})...")
     t0 = time.time()
-    trainer.train()
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
     print(f"[train] SFT completed in {(time.time()-t0)/60:.1f} min")
 
     trainer.save_model(out_dir)
@@ -288,6 +364,42 @@ def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
     print(f"[train] Saved RLVR model to {out_dir}")
 
 
+def resolve_sft_ckpt(resume: str | None) -> str | None:
+    """Resolve --resume-sft to a local checkpoint dir.
+
+    Accepts a local dir containing checkpoint-* subdirs, or an HF Hub repo id;
+    for a repo, downloads it and picks the checkpoint-* dir with the highest
+    step number (the one a disconnected run left behind). Returns None if
+    nothing to resume from.
+    """
+    if not resume:
+        return None
+    # Local path with checkpoints?
+    if os.path.isdir(resume):
+        cks = sorted([d for d in os.listdir(resume)
+                      if d.startswith("checkpoint-")],
+                     key=lambda d: int(d.split("-")[1]))
+        if cks:
+            return os.path.join(resume, cks[-1])
+        return resume
+    # Treat as HF repo id: download, then find latest checkpoint-*
+    try:
+        from huggingface_hub import snapshot_download
+        local = snapshot_download(
+            repo_id=resume, token=os.environ.get("HF_TOKEN", ""),
+            ignore_patterns=["*.bin", "optimizer.pt"],
+        )
+        cks = sorted([d for d in os.listdir(local)
+                      if d.startswith("checkpoint-")],
+                     key=lambda d: int(d.split("-")[1]))
+        if cks:
+            return os.path.join(local, cks[-1])
+        return None
+    except Exception as e:
+        print(f"[train] Could not resolve SFT checkpoint {resume}: {e}")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train the best coding agent")
     parser.add_argument("--model", default="Qwen/Qwen3.5-9B")
@@ -306,6 +418,9 @@ def main():
                         help="Max tokens per RLVR generation")
     parser.add_argument("--resume-rlvr", default=None,
                         help="Resume RLVR from this checkpoint dir")
+    parser.add_argument("--resume-sft", default=None,
+                        help="Resume SFT from a local checkpoint dir or an HF Hub "
+                             "repo (auto-pulls the latest checkpoint-* subdir)")
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--max-length", type=int, default=512)
     parser.add_argument("--output", default="qwen_coding_agent")
@@ -319,7 +434,6 @@ def main():
     # Load model (resume from RLVR checkpoint if requested)
     if args.resume_rlvr:
         from peft import PeftModel
-        from transformers import AutoModelForCausalLM
         model, tokenizer = load_model(args.model)
         model = PeftModel.from_pretrained(model, args.resume_rlvr)
         model.eval()
@@ -344,6 +458,7 @@ def main():
             out_dir=f"{args.output}_sft",
             lr=args.lr, epochs=args.sft_epochs,
             batch_size=args.batch_size, max_length=args.max_length,
+            resume_from_checkpoint=resolve_sft_ckpt(args.resume_sft),
         )
 
     if not args.sft_only:

@@ -72,10 +72,11 @@ def push_kernel(limit: int):
                 if m:
                     hf_token = m.group(1)
     if hf_token:
-        # Inject into the upload copy (gitignored temp file)
+        # Inject into the upload copy so the token is set unconditionally on
+        # Kaggle (HF_TOKEN is not pre-set there). gitignored temp file only.
         script = script.replace(
-            'os.environ["HF_TOKEN"] = os.environ.get("HF_TOKEN", "")',
-            f'os.environ["HF_TOKEN"] = "{hf_token}"')
+            'hf_token = os.environ.get("HF_TOKEN", "")',
+            f'os.environ["HF_TOKEN"] = "{hf_token}"\n    hf_token = os.environ.get("HF_TOKEN", "")')
         print("[kaggle] HF token injected into upload (temp only)")
 
     temp_script = os.path.join(KAGGLE_DIR, "kaggle_train_upload.py")
@@ -96,6 +97,12 @@ def push_kernel(limit: int):
     if r.returncode != 0:
         print("[kaggle] Push error:", r.stderr)
         sys.exit(1)
+
+    # Restore metadata code_file to the committed source so the gitignored
+    # upload file isn't referenced in the repo.
+    meta["code_file"] = "kaggle_train.py"
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2)
 
 
 def monitor(interval: int = 60, max_wait: int = 9 * 3600):
