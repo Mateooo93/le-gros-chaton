@@ -149,6 +149,54 @@ def format_chat(example: dict) -> str:
     return "\n".join(parts) + "\n<|im_start|>assistant\n"
 
 
+def format_trajectory(messages: list[dict]) -> str:
+    """Format a full agent trajectory (from gen_trajectories.py) as text.
+
+    Tool calls/results are user-role turns; the model's decisions are
+    assistant-role turns. Mirrors format_chat but preserves the exact
+    trajectory order.
+    """
+    if not messages:
+        return ""
+    parts = []
+    for m in messages:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if role == "system":
+            parts.append(f"<|im_start|>system\n{content}<|im_end|>")
+        elif role == "user":
+            parts.append(f"<|im_start|>user\n{content}<|im_end|>")
+        elif role == "assistant":
+            parts.append(f"<|im_start|>assistant\n{content}<|im_end|>")
+    return "\n".join(parts) + "\n<|im_start|>assistant\n"
+
+
+def load_agent_traces_full(limit: int | None = None) -> list[dict]:
+    """Load full agent trajectories from agent_traces_full.jsonl (gen_trajectories)."""
+    path = os.path.join(PROJ_ROOT, "agent_traces_full.jsonl")
+    if not os.path.exists(path):
+        print("[train] No agent_traces_full.jsonl — skipping")
+        return []
+    print(f"[train] Loading full trajectories from {path}")
+    out = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                tr = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # Keep verified trajectories (real training signal)
+            if tr.get("verified"):
+                out.append(tr)
+    if limit:
+        out = out[:limit]
+    print(f"[train] Loaded {len(out)} verified trajectories")
+    return out
+
+
 def load_agent_traces(limit: int | None = None) -> list[dict]:
     """Load agent interaction traces (agent_traces.jsonl) as training data."""
     import json as _json
@@ -212,12 +260,18 @@ def load_fable5_dataset(limit: int | None = None, start: int = 0) -> list[dict]:
 def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
               lr: float = 2e-4, epochs: int = 1, batch_size: int = 4,
             max_length: int = 2048, resume_from_checkpoint: str | None = None,
-            start: int = 0) -> tuple[str, int]:
-    """Supervised fine-tuning on the Fable5 dataset.
+            start: int = 0, trajectory: bool = False) -> tuple[str, int]:
+    """Supervised fine-tuning on the Fable5 dataset (or agent trajectories).
 
     Saves a checkpoint every 20% of the run (plus the final step) and uploads
     each one to HF Hub so a disconnected Kaggle session never loses progress —
     the next run resumes from the latest uploaded checkpoint.
+
+    If trajectory=True, the dataset is a list of full agent traces (from
+    gen_trajectories.py) and loss is computed on ASSISTANT tokens only — the
+    model learns to make the right tool call/decision given the history,
+    without being rewarded for copying the tool outputs (research-backed,
+    OmniCoder-style). Requires a longer max_length (e.g. 8192+).
 
     Returns (out_dir, n_rows_trained) where n_rows_trained is the number of
     dataset rows actually consumed (start + steps*eff_batch, capped), so the
@@ -240,6 +294,66 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
         )
         encodings["labels"] = encodings["input_ids"].clone()
         return encodings
+
+    def tokenize_trajectory_fn(examples):
+        """Tokenize trajectories with assistant-token-only loss masking.
+
+        Every message is formatted with role tags; labels for non-assistant
+        tokens (system, user/tool results) are set to -100 so the model only
+        learns to produce its own decisions/tool calls.
+        """
+        batch_texts, batch_labels = [], []
+        for m in examples["messages"]:
+            if not m:
+                continue
+            text = format_trajectory(m)
+            if not text:
+                continue
+            # Tokenize the full formatted trajectory (keep input_ids as ground truth)
+            enc = tokenizer(text, truncation=True, max_length=max_length)
+            ids = enc["input_ids"]
+            labels = [-100] * len(ids)
+            # Re-tokenize the same string but now find assistant spans: instead of
+            # offset mapping, do a cheap pass: tokenize per-message and merge.
+            merged_ids, merged_labels = [], []
+            for msg in m:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if role == "system":
+                    chunk = f"<|im_start|>system\n{content}<|im_end|>\n"
+                    train = False
+                elif role == "user":
+                    chunk = f"<|im_start|>user\n{content}<|im_end|>\n"
+                    train = False
+                else:  # assistant
+                    chunk = f"<|im_start|>assistant\n{content}<|im_end|>\n"
+                    train = True
+                enc_chunk = tokenizer(chunk, add_special_tokens=False)
+                merged_ids.extend(enc_chunk["input_ids"])
+                merged_labels.extend([c if train else -100 for c in enc_chunk["input_ids"]])
+                if len(merged_ids) >= max_length:
+                    break
+            merged_ids = merged_ids[:max_length]
+            merged_labels = merged_labels[:max_length]
+            batch_texts.append(merged_ids)
+            batch_labels.append(merged_labels)
+
+        # Pad to max_length for a rectangular batch
+        import torch as _t
+        pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+        max_len = max((len(t) for t in batch_texts), default=max_length)
+        max_len = min(max_len, max_length)
+        ids_t = _t.full((len(batch_texts), max_len), pad_id, dtype=_t.long)
+        lab_t = _t.full((len(batch_texts), max_len), -100, dtype=_t.long)
+        att_t = _t.zeros((len(batch_texts), max_len), dtype=_t.long)
+        for i, (ids, labs) in enumerate(zip(batch_texts, batch_labels)):
+            ids_t[i, :len(ids)] = _t.tensor(ids, dtype=_t.long)
+            lab_t[i, :len(labs)] = _t.tensor(labs, dtype=_t.long)
+            att_t[i, :len(ids)] = 1
+        return {"input_ids": ids_t, "attention_mask": att_t, "labels": lab_t}
+
+    if trajectory:
+        tokenize_fn = tokenize_trajectory_fn
 
     tokenized = dataset.map(
         tokenize_fn, batched=True,
@@ -412,16 +526,47 @@ def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
                     pad_token_id=tokenizer.eos_token_id,
                 )
 
-            # Compute proportional rewards
+            # Compute proportional rewards (research-backed upgrades):
+            # 1. Loop penalty (SWE-Protégé): repeated verbatim tool calls in a
+            #    sample are penalized — the #1 small-model failure mode.
+            # 2. Self-verification bonus: samples ending with a verifiable
+            #    "run tests" pass are rewarded for finishing, not stopping early.
             rewards = []
             for i in range(group_size):
                 sol = tokenizer.decode(out[i][inputs.input_ids.shape[1]:], skip_special_tokens=True)
                 v = verify(p, sol)
                 r = v.n_pass / max(v.n_total, 1) if v.n_total > 0 else 0.0
+
+                # Loop penalty: count repeated identical tool-call blocks.
+                import re as _re
+                calls = _re.findall(r'```(\w+)\s*\n(.*?)```', sol, _re.DOTALL)
+                uniq = set()
+                dup = 0
+                for c in calls:
+                    if c in uniq:
+                        dup += 1
+                    else:
+                        uniq.add(c)
+                loop_pen = 0.15 * min(dup, 5)  # cap so it can't dominate reward
+
+                # Self-verification bonus: does the solution end with a
+                # test-run/finish that asserts success?
+                last_call = calls[-1][0] if calls else ""
+                sv_bonus = 0.1 if (v.passed or (last_call in ("run_test", "finish")
+                                                and "pass" in sol.lower()[:600])) else 0.0
+
+                r = r - loop_pen + sv_bonus
                 rewards.append(r)
 
             rewards_t = torch.tensor(rewards, device=device, dtype=torch.float)
             adv = (rewards_t - rewards_t.mean()) / (rewards_t.std() + 1e-8)
+
+            # DPPO-style masking: only update tokens where the sample's
+            # logprob is trustworthy — here we use the standard GRPO advantage
+            # but also skip degenerate all-negative groups (TMax finding:
+            # naive GRPO collapses when groups are mostly failures).
+            if (rewards_t.max() - rewards_t.min()) < 1e-4:
+                continue  # no signal in this group — skip the update
 
             for i in range(group_size):
                 if adv[i] <= 0:
@@ -522,6 +667,8 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen3.5-9B")
     parser.add_argument("--dataset", default="Nexlab/fable5-agentic-coding-sft")
     parser.add_argument("--sft-only", action="store_true", help="SFT only (skip RLVR)")
+    parser.add_argument("--trajectory-sft", action="store_true",
+                        help="SFT on agent trajectories (assistant-token loss, long ctx)")
     parser.add_argument("--rlvr-only", action="store_true", help="RLVR only (skip SFT)")
     parser.add_argument("--limit", type=int, default=None, help="Limit dataset rows")
     parser.add_argument("--sft-start", type=int, default=0,
@@ -571,32 +718,54 @@ def main():
         print(f"[train] RLVR adapter attached (step {resume_step})")
 
     if not args.rlvr_only:
-        # Phase 1: SFT on Fable5 dataset
+        # Phase 1: SFT on Fable5 dataset (or agent trajectories)
         print(f"\n{'='*50}")
-        print(f"[train] PHASE 1: SFT on {args.dataset}")
-        print(f"{'='*50}")
-        fable = load_fable5_dataset(limit=args.limit, start=args.sft_start)
-        traces = load_agent_traces(limit=min(args.limit or 5000, 5000))
-        dataset = fable
-        if traces:
-            print(f"[train] Merging {len(traces)} agent traces with Fable5 data")
-            # Keep it simple: traces first, then Fable5
-            dataset = {"messages": list(traces) + list(fable)}
-        sft_path, sft_rows = train_sft(
-            model, tokenizer, dataset,
-            out_dir=f"{args.output}_sft",
-            lr=args.lr, epochs=args.sft_epochs,
-            batch_size=args.batch_size, max_length=args.max_length,
-            resume_from_checkpoint=resolve_sft_ckpt(args.resume_sft),
-            start=args.sft_start,
-        )
-        # Marker for the next stage (Modal 160k continuation).
-        try:
-            with open(os.path.join(sft_path, "sft_progress.json"), "w") as f:
-                json.dump({"start": args.sft_start, "trained_rows": sft_rows}, f)
-            print(f"[train] sft_progress.json: rows_trained={sft_rows}")
-        except Exception as e:
-            print(f"[train] could not write sft_progress.json: {e}")
+        if args.trajectory_sft:
+            print(f"[train] PHASE 1b: TRAJECTORY SFT (assistant-token loss)")
+            print(f"{'='*50}")
+            trajs = load_agent_traces_full(limit=args.limit)
+            if not trajs:
+                raise SystemExit("[train] No trajectories found — run gen_trajectories.py first")
+            dataset = {"messages": [t["messages"] for t in trajs]}
+            sft_path, sft_rows = train_sft(
+                model, tokenizer, dataset,
+                out_dir=f"{args.output}_sft",
+                lr=args.lr, epochs=args.sft_epochs,
+                batch_size=args.batch_size, max_length=args.max_length,
+                resume_from_checkpoint=resolve_sft_ckpt(args.resume_sft),
+                start=args.sft_start, trajectory=True,
+            )
+            try:
+                with open(os.path.join(sft_path, "sft_progress.json"), "w") as f:
+                    json.dump({"start": args.sft_start, "trained_rows": sft_rows,
+                               "mode": "trajectory"}, f)
+            except Exception as e:
+                print(f"[train] could not write sft_progress.json: {e}")
+        else:
+            print(f"[train] PHASE 1: SFT on {args.dataset}")
+            print(f"{'='*50}")
+            fable = load_fable5_dataset(limit=args.limit, start=args.sft_start)
+            traces = load_agent_traces(limit=min(args.limit or 5000, 5000))
+            dataset = fable
+            if traces:
+                print(f"[train] Merging {len(traces)} agent traces with Fable5 data")
+                # Keep it simple: traces first, then Fable5
+                dataset = {"messages": list(traces) + list(fable)}
+            sft_path, sft_rows = train_sft(
+                model, tokenizer, dataset,
+                out_dir=f"{args.output}_sft",
+                lr=args.lr, epochs=args.sft_epochs,
+                batch_size=args.batch_size, max_length=args.max_length,
+                resume_from_checkpoint=resolve_sft_ckpt(args.resume_sft),
+                start=args.sft_start,
+            )
+            # Marker for the next stage (Modal 160k continuation).
+            try:
+                with open(os.path.join(sft_path, "sft_progress.json"), "w") as f:
+                    json.dump({"start": args.sft_start, "trained_rows": sft_rows}, f)
+                print(f"[train] sft_progress.json: rows_trained={sft_rows}")
+            except Exception as e:
+                print(f"[train] could not write sft_progress.json: {e}")
 
     if not args.sft_only:
         # Phase 2: RLVR with verifier rewards

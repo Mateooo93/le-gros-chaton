@@ -63,7 +63,8 @@ HF_SECRET = os.environ.get("CHATON_HF_SECRET", "chaton-hf")
     secrets=[modal.Secret.from_name(HF_SECRET)],
 )
 def train(limit: int | None, sft_start: int, sft_only: bool,
-          resume_sft: str, adapter: str, model_name: str):
+          resume_sft: str, adapter: str, model_name: str,
+          trajectory_sft: bool = False):
     os.chdir("/root/proj")
 
     # train_qwen.py reads HF_TOKEN from env for checkpoint pull/upload.
@@ -76,6 +77,8 @@ def train(limit: int | None, sft_start: int, sft_only: bool,
            "--batch-size", "4",           # fits L4 24GB
            "--sft-epochs", "1",
            "--max-length", "1024"]
+    if trajectory_sft:
+        cmd += ["--trajectory-sft", "--max-length", "8192"]
     if resume_sft:
         cmd += ["--resume-sft", resume_sft]
     if not sft_only:
@@ -98,6 +101,9 @@ def main():
                              "If omitted, auto-read from the adapter's "
                              "sft_progress.json (written by the Kaggle run)")
     parser.add_argument("--rlvr", action="store_true", help="Include RLVR phase")
+    parser.add_argument("--trajectory-sft", action="store_true",
+                        help="SFT on agent trajectories (assistant-token loss, "
+                             "needs agent_traces_full.jsonl in the repo)")
     parser.add_argument("--resume-sft", default="mateo0093/le-gros-chaton-qwen-sft-ckpt",
                         help="HF repo with SFT checkpoints to resume from")
     parser.add_argument("--adapter", default="mateo0093/le-gros-chaton-qwen",
@@ -133,6 +139,7 @@ def main():
         resume_sft=args.resume_sft,
         adapter=args.adapter,
         model_name=args.model,
+        trajectory_sft=args.trajectory_sft,
     )
 
 

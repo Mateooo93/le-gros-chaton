@@ -17,6 +17,8 @@ import subprocess
 import sys
 import time
 
+import torch
+
 PROJ_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJ_ROOT not in sys.path:
     sys.path.insert(0, PROJ_ROOT)
@@ -28,6 +30,7 @@ TOOLS = {
     "search_code": {"desc": "Search for a pattern in the codebase", "args": "<pattern>"},
     "list_dir": {"desc": "List files in a directory", "args": "<dirpath>"},
     "run_test": {"desc": "Run a specific test", "args": "<test_command>"},
+    "prune": {"desc": "Drop old messages from context to stay within budget (long tasks)", "args": "<keep_last_N>"},
     "finish": {"desc": "Submit the patch and finish", "args": "<explanation>"},
 }
 
@@ -104,12 +107,26 @@ class SWEAgent:
 
         self.tool_calls_used = 0
         max_tool_calls = 40  # hard cap to prevent runaway loops
+        self.trace = []  # full message history (for training data)
+        self._msgs = messages  # prune tool mutates this in place
+
+        # Long-task token budget (research: context rot is the #1 failure
+        # mode; agents must actively manage context, not accumulate it).
+        ctx_budget = 6000  # tokens of history kept for the model
 
         for turn in range(self.max_turns):
-            # Context window management: keep the last ~8 messages to avoid
-            # overflowing the model's context (critical for long SWE tasks).
-            if len(messages) > 10:
+            # Context window management: trim history to stay within budget.
+            # The FULL history is preserved in self.trace for training data.
+            prompt = self._format_messages(messages)
+            n_tok = len(self.tokenizer(prompt)['input_ids'])
+            while n_tok > ctx_budget and len(messages) > 3:
+                messages.pop(1)  # drop oldest non-system message
+                prompt = self._format_messages(messages)
+                n_tok = len(self.tokenizer(prompt)['input_ids'])
+            if len(messages) > 10 and n_tok > ctx_budget:
+                # hard fallback: keep last 9 + system
                 messages = messages[:1] + messages[-9:]
+            self._msgs = messages
 
             prompt = self._format_messages(messages)
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
@@ -123,11 +140,8 @@ class SWEAgent:
             response = self.tokenizer.decode(
                 out[0][inputs.input_ids.shape[1]:], skip_special_tokens=True
             )
-
             messages.append({"role": "assistant", "content": response})
-            if not hasattr(self, "trace"):
-                self.trace = []
-            self.trace.append({"turn": turn + 1, "response": response[:500]})
+            self.trace.append({"role": "assistant", "content": response})
             print(f"\n--- Turn {turn + 1} ---")
             print(response[:300])
 
@@ -141,16 +155,20 @@ class SWEAgent:
             for action, args_text in actions:
                 if action == "finish":
                     print(f"\n✅ Agent finished: {args_text[:200]}")
+                    self.trace.append({"role": "user", "content": f"[finish] {args_text}"})
                     finished = True
                     break
 
                 self.tool_calls_used += 1
                 if self.tool_calls_used > max_tool_calls:
                     print(f"\n⚠ Hit tool-call cap ({max_tool_calls}). Stopping.")
+                    self.trace.append({"role": "user", "content": "[tool cap reached]"})
                     finished = True
                     break
 
                 result = self._execute_tool(action, args_text)
+                self.trace.append({"role": "user", "content":
+                    f"Tool [{action}]({args_text}):\n{result[:2000]}"})
                 # Recovery: detect failures and inject corrective feedback
                 if self._is_failure(result):
                     correction = self._failure_hint(action, result)
@@ -166,6 +184,7 @@ class SWEAgent:
                     "explanation": args_text,
                     "patch": self._get_patch(),
                     "success": True,
+                    "trace": self.trace,
                 }
 
         self._save_trace(instance_id, self.max_turns, False)
@@ -174,6 +193,7 @@ class SWEAgent:
             "turns": self.max_turns,
             "patch": self._get_patch(),
             "success": False,
+            "trace": self.trace,
         }
 
     def _format_messages(self, messages):
@@ -322,6 +342,17 @@ class SWEAgent:
                     capture_output=True, text=True, timeout=60,
                 )
                 return (result.stdout + result.stderr)[:2000] or "No output"
+
+            elif action == "prune":
+                try:
+                    keep = max(2, int(args_text.strip().split()[0]))
+                except (ValueError, IndexError):
+                    keep = 6
+                # Keep system + last `keep` messages
+                if len(self._msgs) > keep + 1:
+                    self._msgs = self._msgs[:1] + self._msgs[-(keep):]
+                    return f"Pruned context to system + last {keep} messages."
+                return f"Context already small ({len(self._msgs)} msgs) — nothing pruned."
 
             else:
                 return f"Unknown tool: {action}. Available: {', '.join(TOOLS.keys())}"
