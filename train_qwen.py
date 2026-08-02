@@ -511,6 +511,8 @@ def main():
                         help="RLVR learning rate")
     parser.add_argument("--rlvr-max-new", type=int, default=256,
                         help="Max tokens per RLVR generation")
+    parser.add_argument("--rlvr-save-every", type=int, default=25,
+                        help="Save+upload an RLVR checkpoint every N steps")
     parser.add_argument("--resume-rlvr", default=None,
                         help="Resume RLVR from this checkpoint dir (local or HF repo)")
     parser.add_argument("--adapter", default=None,
@@ -578,6 +580,7 @@ def main():
             group_size=args.group_size,
             lr=args.rlvr_lr,
             max_new=args.rlvr_max_new,
+            save_every=args.rlvr_save_every,
             resume_step=resume_step,
         )
 

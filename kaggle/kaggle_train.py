@@ -42,7 +42,9 @@ def rlvr_args() -> list[str]:
     tok = os.environ.get("HF_TOKEN", "")
     steps = os.environ.get("RLVR_STEPS", "100")
     group = os.environ.get("RLVR_GROUP", "4")
-    args = ["--rlvr-only", "--rlvr-steps", steps, "--group-size", group]
+    save_every = os.environ.get("RLVR_SAVE_EVERY", "25")
+    args = ["--rlvr-only", "--rlvr-steps", steps, "--group-size", group,
+            "--rlvr-save-every", save_every]
     if tok:
         try:
             from huggingface_hub import HfApi

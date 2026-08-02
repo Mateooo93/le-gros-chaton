@@ -50,7 +50,7 @@ def setup_env():
 
 
 def push_kernel(limit: int, phase: str = "sft", rlvr_steps: int = 100,
-                rlvr_group: int = 4):
+                rlvr_group: int = 4, rlvr_save_every: int = 25):
     """Write kernel-metadata.json with current limit, push the kernel."""
     setup_env()
     meta_path = os.path.join(KAGGLE_DIR, "kernel-metadata.json")
@@ -67,6 +67,8 @@ def push_kernel(limit: int, phase: str = "sft", rlvr_steps: int = 100,
                             f'os.environ.get("RLVR_STEPS", "{rlvr_steps}")')
     script = script.replace('os.environ.get("RLVR_GROUP", "4")',
                             f'os.environ.get("RLVR_GROUP", "{rlvr_group}")')
+    script = script.replace('os.environ.get("RLVR_SAVE_EVERY", "25")',
+                            f'os.environ.get("RLVR_SAVE_EVERY", "{rlvr_save_every}")')
 
     # Pull token from gpus.md at push time only
     import re
@@ -157,6 +159,8 @@ def main():
                         help="RLVR training steps (phase=rlvr)")
     parser.add_argument("--rlvr-group", type=int, default=4,
                         help="GRPO group size (phase=rlvr)")
+    parser.add_argument("--rlvr-save-every", type=int, default=25,
+                        help="Save+upload RLVR checkpoint every N steps")
     parser.add_argument("--status", action="store_true",
                         help="Check current kernel status")
     parser.add_argument("--output", action="store_true",
@@ -177,7 +181,8 @@ def main():
 
     if not args.monitor_only:
         push_kernel(args.limit, phase=args.phase,
-                    rlvr_steps=args.rlvr_steps, rlvr_group=args.rlvr_group)
+                    rlvr_steps=args.rlvr_steps, rlvr_group=args.rlvr_group,
+                    rlvr_save_every=args.rlvr_save_every)
     monitor()
 
 
