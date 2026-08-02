@@ -33,6 +33,27 @@ def sft_resume_args() -> list[str]:
         return []
 
 
+def rlvr_args() -> list[str]:
+    """Build the Phase 2 (RLVR) command args.
+
+    Starts from the Phase 1 SFT adapter on the Hub, optionally resumes RLVR
+    checkpoints, and uploads RLVR checkpoints to a separate Hub repo.
+    """
+    tok = os.environ.get("HF_TOKEN", "")
+    steps = os.environ.get("RLVR_STEPS", "100")
+    group = os.environ.get("RLVR_GROUP", "4")
+    args = ["--rlvr-only", "--rlvr-steps", steps, "--group-size", group]
+    if tok:
+        try:
+            from huggingface_hub import HfApi
+            who = HfApi(token=tok).whoami()["name"]
+            args += ["--adapter", f"{who}/le-gros-chaton-qwen",
+                     "--resume-rlvr", f"{who}/le-gros-chaton-qwen-rlvr-ckpt"]
+        except Exception as e:
+            print(f"[warn] cannot derive HF repo for RLVR: {e}")
+    return args
+
+
 try:
     # 1. Install deps (Qwen3.5 needs transformers >= 5.14.1 for 'qwen3_5' support)
     log("=== Installing deps ===")
@@ -60,11 +81,13 @@ try:
     hf_token = os.environ.get("HF_TOKEN", "")
     log(f"HF_TOKEN set: {bool(hf_token)}")
 
-    # 4. Run training (Phase 1: SFT) — stream stdout/stderr live to the
-    #    Kaggle cell AND tee it to /kaggle/working/train_log.txt so we can
-    #    `kaggle kernels output` mid-run to see progress (not just at the end).
+    # 4. Run training — PHASE 1 (SFT) by default, PHASE 2 (RLVR) when
+    #    TRAIN_PHASE=rlvr. Stream stdout/stderr live to the Kaggle cell AND
+    #    tee it to /kaggle/working/train_log.txt so we can `kaggle kernels
+    #    output` mid-run to see progress.
     limit = os.environ.get("TRAIN_LIMIT", "10000")
-    log(f"=== Training (limit={limit}) ===")
+    phase = os.environ.get("TRAIN_PHASE", "sft").strip().lower()
+    log(f"=== Training (phase={phase}, limit={limit}) ===")
     out_dir = "/kaggle/working"
     os.makedirs(out_dir, exist_ok=True)
     live_log = os.path.join(out_dir, "train_log.txt")
@@ -75,10 +98,14 @@ try:
     except Exception:
         pass
 
+    if phase == "rlvr":
+        cmd = [sys.executable, "-u", "train_qwen.py"] + rlvr_args()
+    else:
+        cmd = [sys.executable, "-u", "train_qwen.py",
+               "--sft-only", "--limit", limit] + sft_resume_args()
+    log("CMD: " + " ".join(cmd))
     proc = subprocess.Popen(
-        [sys.executable, "-u", "train_qwen.py", "--sft-only", "--limit", limit]
-        + sft_resume_args(),
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
     )
     tail = []
     with open(live_log, "a") as lf:

@@ -25,7 +25,8 @@ if PROJ_ROOT not in sys.path:
     sys.path.insert(0, PROJ_ROOT)
 
 
-def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
+def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True,
+               adapter: str | None = None):
     """Load Qwen3.5-9B in 4-bit QLoRA, optimized for T4/L4 16-24GB.
 
     Qwen/Qwen3.5-9B is a hybrid-attention vision-language model (model_type
@@ -94,6 +95,30 @@ def load_model(model_name: str = "Qwen/Qwen3.5-9B", use_lora: bool = True):
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, lora_config)
+        model.print_trainable_parameters()
+
+    # Attach a previously trained LoRA adapter (e.g. the Phase 1 SFT adapter)
+    # so Phase 2 RLVR starts from it. adapter can be a local dir or HF repo id.
+    if adapter:
+        if not use_lora:
+            raise ValueError("adapter requires use_lora=True")
+        if os.path.isdir(adapter):
+            adapter_id = adapter
+        else:
+            try:
+                from huggingface_hub import snapshot_download
+                adapter_id = snapshot_download(
+                    repo_id=adapter, token=os.environ.get("HF_TOKEN", ""))
+            except Exception as e:
+                raise RuntimeError(f"Could not download adapter {adapter}: {e}")
+        print(f"[train] Loading SFT adapter from {adapter_id}")
+        model.load_adapter(adapter_id, adapter_name="sft")
+        model.set_adapter("sft")
+        # Drop the untrained random adapter so training/evals only use the SFT one.
+        try:
+            model.delete_adapter("default")
+        except Exception:
+            pass
         model.print_trainable_parameters()
 
     print(f"[train] Loaded in {time.time() - t0:.1f}s")
@@ -272,6 +297,7 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
             try:
                 hf_hub.upload_folder(
                     folder_path=ckpt, repo_id=ckpt_repo,
+                    path_in_repo=f"checkpoint-{state.global_step}",
                     token=hf_token, ignore_patterns=["*.bin", "optimizer.pt"],
                 )
                 print(f"[train] ✓ Uploaded checkpoint-{state.global_step}")
@@ -300,7 +326,8 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
 def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
                n_steps: int = 200, group_size: int = 4,
                batch_size: int = 2, max_new: int = 256,
-               lr: float = 2e-5, save_every: int = 50):
+               lr: float = 2e-5, save_every: int = 50,
+               resume_step: int = 0):
     """GRPO with proportional rewards (verifier-based).
 
     Args:
@@ -310,18 +337,45 @@ def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
         max_new: Max tokens to generate per sample
         lr: Learning rate
         save_every: Checkpoint every N steps (Kaggle 9hr session safety)
+        resume_step: Step number to start from (for --resume-rlvr)
     """
     from verify.verifier import Problem, verify
     from torch.optim import AdamW
+    import huggingface_hub as hf_hub
 
-    optimizer = AdamW(model.parameters(), lr=lr)
+    # Only trainable (LoRA) params get optimizer states — the 4-bit base is
+    # frozen. Feeding model.parameters() to AdamW would allocate states for
+    # frozen/quantized weights and blow up T4 memory.
+    trainable = [p for p in model.parameters() if p.requires_grad]
+    optimizer = AdamW(trainable, lr=lr)
     device = model.device
+    model.train()
 
-    for step in range(n_steps):
+    # HF repo for RLVR checkpoints (same layout as SFT: checkpoint-{step}/).
+    hf_token = os.environ.get("HF_TOKEN", "")
+    ckpt_repo = None
+    if hf_token:
+        try:
+            api = hf_hub.HfApi(token=hf_token)
+            ckpt_repo = f"{api.whoami()['name']}/le-gros-chaton-qwen-rlvr-ckpt"
+            api.create_repo(ckpt_repo, private=True, exist_ok=True)
+            print(f"[train] RLVR checkpoints will upload to HF Hub: {ckpt_repo}")
+        except Exception as e:
+            print(f"[train] RLVR HF Hub upload disabled: {e}")
+            ckpt_repo = None
+
+    n_probs = len(problems)
+    for step in range(resume_step, n_steps):
         optimizer.zero_grad()
         total_loss = 0.0
 
-        for prob in problems[:batch_size]:
+        # Rotate through problems so every step sees fresh ones (the old
+        # `problems[:batch_size]` re-used the same problems every step).
+        start = (step * batch_size) % n_probs
+        probs = (problems * ((start + batch_size + n_probs - 1) // n_probs))[
+            start:start + batch_size]
+
+        for prob in probs:
             p = Problem(id=prob.id, prompt=prob.prompt,
                        tests=prob.tests, entry_point=prob.entry_point)
 
@@ -365,16 +419,38 @@ def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
         if step % 20 == 0:
             print(f"[train] RLVR step {step}: loss={total_loss:.4f}")
 
-        # Checkpoint to survive Kaggle 9hr session limits
+        # Checkpoint to survive Kaggle session limits + upload to HF Hub
         if (step + 1) % save_every == 0:
             ckpt_dir = f"{out_dir}_step{step+1}"
             model.save_pretrained(ckpt_dir)
             tokenizer.save_pretrained(ckpt_dir)
             print(f"[train] Checkpoint saved to {ckpt_dir}")
+            if ckpt_repo:
+                print(f"[train] Uploading {ckpt_dir} -> {ckpt_repo} ...")
+                try:
+                    hf_hub.upload_folder(
+                        folder_path=ckpt_dir, repo_id=ckpt_repo,
+                        path_in_repo=f"checkpoint-{step+1}",
+                        token=hf_token, ignore_patterns=["*.bin", "optimizer.pt"],
+                    )
+                    print(f"[train] ✓ Uploaded RLVR checkpoint-{step+1}")
+                except Exception as e:
+                    print(f"[train] RLVR upload failed: {e}")
 
     model.save_pretrained(out_dir)
     tokenizer.save_pretrained(out_dir)
     print(f"[train] Saved RLVR model to {out_dir}")
+    if ckpt_repo:
+        try:
+            hf_hub.upload_folder(
+                folder_path=out_dir, repo_id=ckpt_repo,
+                path_in_repo="final",
+                token=hf_token, ignore_patterns=["*.bin", "optimizer.pt"],
+            )
+            print(f"[train] ✓ Uploaded RLVR final -> {ckpt_repo}/final")
+        except Exception as e:
+            print(f"[train] RLVR final upload failed: {e}")
+    return out_dir
 
 
 def resolve_sft_ckpt(resume: str | None) -> str | None:
@@ -436,7 +512,10 @@ def main():
     parser.add_argument("--rlvr-max-new", type=int, default=256,
                         help="Max tokens per RLVR generation")
     parser.add_argument("--resume-rlvr", default=None,
-                        help="Resume RLVR from this checkpoint dir")
+                        help="Resume RLVR from this checkpoint dir (local or HF repo)")
+    parser.add_argument("--adapter", default=None,
+                        help="Pretrained LoRA adapter to start from (local dir or HF repo id, "
+                             "e.g. {user}/le-gros-chaton-qwen for the Phase 1 SFT adapter)")
     parser.add_argument("--resume-sft", default=None,
                         help="Resume SFT from a local checkpoint dir or an HF Hub "
                              "repo (auto-pulls the latest checkpoint-* subdir)")
@@ -450,15 +529,19 @@ def main():
     print(f"[train] Dataset: {args.dataset}")
     print(f"[train] Output: {args.output}")
 
-    # Load model (resume from RLVR checkpoint if requested)
+    # Load model — optionally attach the Phase 1 SFT adapter, then optionally
+    # attach an existing RLVR adapter (resume) on top of it.
+    resume_step = 0
     if args.resume_rlvr:
-        from peft import PeftModel
-        model, tokenizer = load_model(args.model)
-        model = PeftModel.from_pretrained(model, args.resume_rlvr)
-        model.eval()
-        print(f"[train] Resumed RLVR adapter from {args.resume_rlvr}")
-    else:
-        model, tokenizer = load_model(args.model)
+        rlvr_ckpt = resolve_sft_ckpt(args.resume_rlvr)  # same checkpoint-* layout
+        if rlvr_ckpt:
+            resume_step = int(os.path.basename(rlvr_ckpt).split("-")[1])
+            print(f"[train] Resuming RLVR from step {resume_step}: {rlvr_ckpt}")
+    model, tokenizer = load_model(args.model, adapter=args.adapter)
+    if args.resume_rlvr and rlvr_ckpt:
+        model.load_adapter(rlvr_ckpt, adapter_name="rlvr")
+        model.set_adapter("rlvr")
+        print(f"[train] RLVR adapter attached (step {resume_step})")
 
     if not args.rlvr_only:
         # Phase 1: SFT on Fable5 dataset
@@ -495,6 +578,7 @@ def main():
             group_size=args.group_size,
             lr=args.rlvr_lr,
             max_new=args.rlvr_max_new,
+            resume_step=resume_step,
         )
 
     # Final save

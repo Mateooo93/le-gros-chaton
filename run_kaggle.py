@@ -49,17 +49,24 @@ def setup_env():
     os.environ["KAGGLE_KEY"] = k
 
 
-def push_kernel(limit: int):
+def push_kernel(limit: int, phase: str = "sft", rlvr_steps: int = 100,
+                rlvr_group: int = 4):
     """Write kernel-metadata.json with current limit, push the kernel."""
     setup_env()
     meta_path = os.path.join(KAGGLE_DIR, "kernel-metadata.json")
     with open(meta_path) as f:
         meta = json.load(f)
-    # Inject HF token + limit into a TEMP copy (never committed)
+    # Inject HF token + limit + phase into a TEMP copy (never committed)
     with open(os.path.join(KAGGLE_DIR, "kaggle_train.py")) as f:
         script = f.read()
     script = script.replace('os.environ.get("TRAIN_LIMIT", "10000")',
                             f'os.environ.get("TRAIN_LIMIT", "{limit}")')
+    script = script.replace('os.environ.get("TRAIN_PHASE", "sft")',
+                            f'os.environ.get("TRAIN_PHASE", "{phase}")')
+    script = script.replace('os.environ.get("RLVR_STEPS", "100")',
+                            f'os.environ.get("RLVR_STEPS", "{rlvr_steps}")')
+    script = script.replace('os.environ.get("RLVR_GROUP", "4")',
+                            f'os.environ.get("RLVR_GROUP", "{rlvr_group}")')
 
     # Pull token from gpus.md at push time only
     import re
@@ -143,7 +150,13 @@ def download_output():
 def main():
     parser = argparse.ArgumentParser(description="Run Kaggle training via API")
     parser.add_argument("--limit", type=int, default=10000,
-                        help="Dataset rows for training")
+                        help="Dataset rows for SFT")
+    parser.add_argument("--phase", default="sft", choices=["sft", "rlvr"],
+                        help="Which training phase to run")
+    parser.add_argument("--rlvr-steps", type=int, default=100,
+                        help="RLVR training steps (phase=rlvr)")
+    parser.add_argument("--rlvr-group", type=int, default=4,
+                        help="GRPO group size (phase=rlvr)")
     parser.add_argument("--status", action="store_true",
                         help="Check current kernel status")
     parser.add_argument("--output", action="store_true",
@@ -163,7 +176,8 @@ def main():
         return
 
     if not args.monitor_only:
-        push_kernel(args.limit)
+        push_kernel(args.limit, phase=args.phase,
+                    rlvr_steps=args.rlvr_steps, rlvr_group=args.rlvr_group)
     monitor()
 
 
