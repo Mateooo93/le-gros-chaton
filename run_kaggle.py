@@ -50,7 +50,8 @@ def setup_env():
 
 
 def push_kernel(limit: int, phase: str = "sft", rlvr_steps: int = 100,
-                rlvr_group: int = 4, rlvr_save_every: int = 25):
+                rlvr_group: int = 4, rlvr_save_every: int = 25,
+                sft_batch: int = 2):
     """Write kernel-metadata.json with current limit, push the kernel."""
     setup_env()
     meta_path = os.path.join(KAGGLE_DIR, "kernel-metadata.json")
@@ -69,6 +70,8 @@ def push_kernel(limit: int, phase: str = "sft", rlvr_steps: int = 100,
                             f'os.environ.get("RLVR_GROUP", "{rlvr_group}")')
     script = script.replace('os.environ.get("RLVR_SAVE_EVERY", "25")',
                             f'os.environ.get("RLVR_SAVE_EVERY", "{rlvr_save_every}")')
+    script = script.replace('os.environ.get("SFT_BATCH", "2")',
+                            f'os.environ.get("SFT_BATCH", "{sft_batch}")')
 
     # Pull token from gpus.md at push time only
     import re
@@ -153,6 +156,8 @@ def main():
     parser = argparse.ArgumentParser(description="Run Kaggle training via API")
     parser.add_argument("--limit", type=int, default=10000,
                         help="Dataset rows for SFT")
+    parser.add_argument("--batch-size", type=int, default=2,
+                        help="Per-GPU batch size for SFT (2x T4 => eff batch 32)")
     parser.add_argument("--phase", default="sft", choices=["sft", "rlvr"],
                         help="Which training phase to run")
     parser.add_argument("--rlvr-steps", type=int, default=100,
@@ -182,7 +187,8 @@ def main():
     if not args.monitor_only:
         push_kernel(args.limit, phase=args.phase,
                     rlvr_steps=args.rlvr_steps, rlvr_group=args.rlvr_group,
-                    rlvr_save_every=args.rlvr_save_every)
+                    rlvr_save_every=args.rlvr_save_every,
+                    sft_batch=args.batch_size)
     monitor()
 
 

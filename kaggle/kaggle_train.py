@@ -104,7 +104,8 @@ try:
         cmd = [sys.executable, "-u", "train_qwen.py"] + rlvr_args()
     else:
         cmd = [sys.executable, "-u", "train_qwen.py",
-               "--sft-only", "--limit", limit] + sft_resume_args()
+               "--sft-only", "--limit", limit, "--batch-size",
+               os.environ.get("SFT_BATCH", "2")] + sft_resume_args()
     log("CMD: " + " ".join(cmd))
     proc = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
