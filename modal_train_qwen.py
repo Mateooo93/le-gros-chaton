@@ -42,6 +42,14 @@ image = (
         "tiktoken",
         "safetensors",
     )
+    # Fast kernels for the hybrid linear-attention layers (24/32 layers are
+    # linear-attention). Without these, transformers falls back to a slow torch
+    # path. fla needs a CUDA build at install time; if it fails, the run still
+    # works on the torch fallback (just slower).
+    .run_commands(
+        "pip install causal-conv1d --no-build-isolation || true",
+        "pip install fla --no-build-isolation || true",
+    )
     .add_local_dir(".", "/root/proj", ignore=["__pycache__", ".git", "*.pt", "*.bin"])
 )
 
