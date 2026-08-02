@@ -211,12 +211,17 @@ def load_fable5_dataset(limit: int | None = None, start: int = 0) -> list[dict]:
 
 def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
               lr: float = 2e-4, epochs: int = 1, batch_size: int = 4,
-            max_length: int = 2048, resume_from_checkpoint: str | None = None):
+            max_length: int = 2048, resume_from_checkpoint: str | None = None,
+            start: int = 0) -> tuple[str, int]:
     """Supervised fine-tuning on the Fable5 dataset.
 
     Saves a checkpoint every 20% of the run (plus the final step) and uploads
     each one to HF Hub so a disconnected Kaggle session never loses progress —
     the next run resumes from the latest uploaded checkpoint.
+
+    Returns (out_dir, n_rows_trained) where n_rows_trained is the number of
+    dataset rows actually consumed (start + steps*eff_batch, capped), so the
+    next stage (Modal 160k) can continue from the exact row offset.
     """
     from transformers import (
         TrainingArguments, Trainer, DataCollatorForSeq2Seq, TrainerCallback,
@@ -331,7 +336,13 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
     trainer.save_model(out_dir)
     tokenizer.save_pretrained(out_dir)
     print(f"[train] Saved SFT model to {out_dir}")
-    return out_dir
+
+    # Rows actually consumed by this run (for the Modal continuation offset).
+    steps_done = trainer.state.global_step
+    rows_trained = min(start + steps_done * eff_batch, n_examples + start)
+    print(f"[train] Trained {rows_trained} rows total (start={start}, "
+          f"steps={steps_done}, eff_batch={eff_batch})")
+    return out_dir, rows_trained
 
 
 def train_rlvr(model, tokenizer, problems, out_dir: str = "qwen_rlvr",
@@ -571,13 +582,21 @@ def main():
             print(f"[train] Merging {len(traces)} agent traces with Fable5 data")
             # Keep it simple: traces first, then Fable5
             dataset = {"messages": list(traces) + list(fable)}
-        sft_path = train_sft(
+        sft_path, sft_rows = train_sft(
             model, tokenizer, dataset,
             out_dir=f"{args.output}_sft",
             lr=args.lr, epochs=args.sft_epochs,
             batch_size=args.batch_size, max_length=args.max_length,
             resume_from_checkpoint=resolve_sft_ckpt(args.resume_sft),
+            start=args.sft_start,
         )
+        # Marker for the next stage (Modal 160k continuation).
+        try:
+            with open(os.path.join(sft_path, "sft_progress.json"), "w") as f:
+                json.dump({"start": args.sft_start, "trained_rows": sft_rows}, f)
+            print(f"[train] sft_progress.json: rows_trained={sft_rows}")
+        except Exception as e:
+            print(f"[train] could not write sft_progress.json: {e}")
 
     if not args.sft_only:
         # Phase 2: RLVR with verifier rewards

@@ -8,6 +8,9 @@ import traceback
 
 LOG = "/tmp/train_log.txt"
 
+# Reduce CUDA fragmentation (helps on 16GB T4s, esp. with grad accumulation)
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 def log(msg):
     print(msg, flush=True)
     with open(LOG, "a") as f:
@@ -128,7 +131,7 @@ try:
         # would not match this run's data size.
         cmd = [sys.executable, "-u", "train_qwen.py",
                "--sft-only", "--limit", limit, "--batch-size",
-               os.environ.get("SFT_BATCH", "2")] + sft_adapter_args()
+               os.environ.get("SFT_BATCH", "1")] + sft_adapter_args() + sft_resume_args()
     log("CMD: " + " ".join(cmd))
     proc = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,

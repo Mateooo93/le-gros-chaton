@@ -85,8 +85,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--full", action="store_true",
                         help="Full 160K dataset (default: 10K)")
-    parser.add_argument("--sft-start", type=int, default=0,
-                        help="Row offset — rows [0, start) already trained on Kaggle")
+    parser.add_argument("--sft-start", type=int, default=None,
+                        help="Row offset — rows [0, start) already trained. "
+                             "If omitted, auto-read from the adapter's "
+                             "sft_progress.json (written by the Kaggle run)")
     parser.add_argument("--rlvr", action="store_true", help="Include RLVR phase")
     parser.add_argument("--resume-sft", default="mateo0093/le-gros-chaton-qwen-sft-ckpt",
                         help="HF repo with SFT checkpoints to resume from")
@@ -94,6 +96,26 @@ def main():
                         help="Pretrained LoRA adapter to start from")
     parser.add_argument("--model", default="Qwen/Qwen3.5-9B")
     args = parser.parse_args()
+
+    # Auto-detect the continuation offset from the adapter repo's progress marker.
+    if args.sft_start is None:
+        try:
+            from huggingface_hub import hf_hub_download, HfApi
+            token = os.environ.get("HF_TOKEN", "")
+            api = HfApi(token=token)
+            files = api.list_repo_files(args.adapter)
+            if "sft_progress.json" in files:
+                p = hf_hub_download(args.adapter, "sft_progress.json", token=token)
+                import json
+                prog = json.load(open(p))
+                args.sft_start = int(prog.get("trained_rows", 0))
+                print(f"[modal] Auto sft-start from progress marker: {args.sft_start}")
+            else:
+                args.sft_start = 0
+                print("[modal] No sft_progress.json in adapter — starting at row 0")
+        except Exception as e:
+            args.sft_start = 0
+            print(f"[modal] Could not read progress marker (start=0): {e}")
 
     limit = None if args.full else 10000
     train.remote(
