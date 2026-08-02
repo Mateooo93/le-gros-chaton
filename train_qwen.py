@@ -186,15 +186,26 @@ def load_agent_traces(limit: int | None = None) -> list[dict]:
     return examples
 
 
-def load_fable5_dataset(limit: int | None = None) -> list[dict]:
-    """Load the Fable5 agentic coding SFT dataset from HuggingFace."""
+def load_fable5_dataset(limit: int | None = None, start: int = 0) -> list[dict]:
+    """Load the Fable5 agentic coding SFT dataset from HuggingFace.
+
+    Args:
+        limit: Max rows to load (None = all 160k)
+        start: Row offset — used to continue training on the tail of the
+            dataset after a smaller run already trained rows [0, start).
+    """
     from datasets import load_dataset
 
     print("[train] Loading Fable5 dataset (160k rows)...")
     ds = load_dataset("Nexlab/fable5-agentic-coding-sft", split="train")
-    if limit:
-        ds = ds.select(range(min(limit, len(ds))))
-    print(f"[train] Loaded {len(ds)} examples")
+    n = len(ds)
+    end = min(limit or n, n)
+    if start >= end:
+        raise ValueError(f"start={start} >= end={end} — nothing left to train on")
+    if start > 0:
+        print(f"[train] Skipping rows [0, {start}) — continuing from row {start}")
+    ds = ds.select(range(start, end))
+    print(f"[train] Loaded {len(ds)} examples (rows {start}-{end} of {n})")
     return ds
 
 
@@ -502,6 +513,9 @@ def main():
     parser.add_argument("--sft-only", action="store_true", help="SFT only (skip RLVR)")
     parser.add_argument("--rlvr-only", action="store_true", help="RLVR only (skip SFT)")
     parser.add_argument("--limit", type=int, default=None, help="Limit dataset rows")
+    parser.add_argument("--sft-start", type=int, default=0,
+                        help="Row offset to start SFT from (0 = beginning; use the row "
+                             "count of a prior run to continue on the rest of the data)")
     parser.add_argument("--sft-epochs", type=int, default=1)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--rlvr-steps", type=int, default=200)
@@ -550,7 +564,7 @@ def main():
         print(f"\n{'='*50}")
         print(f"[train] PHASE 1: SFT on {args.dataset}")
         print(f"{'='*50}")
-        fable = load_fable5_dataset(limit=args.limit)
+        fable = load_fable5_dataset(limit=args.limit, start=args.sft_start)
         traces = load_agent_traces(limit=min(args.limit or 5000, 5000))
         dataset = fable
         if traces:
