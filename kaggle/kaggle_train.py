@@ -14,6 +14,24 @@ def log(msg):
         f.write(str(msg) + "\n")
 
 
+def sft_adapter_args() -> list[str]:
+    """Return ['--adapter', repo] so SFT continues from the last trained adapter.
+
+    The base repo `{who}/le-gros-chaton-qwen` holds the last completed SFT
+    adapter (10k rows so far, then 16k once this run saves its final model).
+    """
+    tok = os.environ.get("HF_TOKEN", "")
+    if not tok:
+        return []
+    try:
+        from huggingface_hub import HfApi
+        who = HfApi(token=tok).whoami()["name"]
+        return ["--adapter", f"{who}/le-gros-chaton-qwen"]
+    except Exception as e:
+        print(f"[warn] cannot derive HF repo for adapter: {e}")
+        return []
+
+
 def sft_resume_args() -> list[str]:
     """Return ['--resume-sft', repo] if HF_TOKEN is set, else [].
 
@@ -103,9 +121,14 @@ try:
     if phase == "rlvr":
         cmd = [sys.executable, "-u", "train_qwen.py"] + rlvr_args()
     else:
+        # SFT: continue from the trained SFT adapter (mateo0093/le-gros-chaton-qwen)
+        # rather than starting from a random LoRA. --resume-sft is NOT used:
+        # the SFT ckpt repo's checkpoint-* layout only exists for Kaggle
+        # disconnect resume within the same run, and its trainer step counter
+        # would not match this run's data size.
         cmd = [sys.executable, "-u", "train_qwen.py",
                "--sft-only", "--limit", limit, "--batch-size",
-               os.environ.get("SFT_BATCH", "2")] + sft_resume_args()
+               os.environ.get("SFT_BATCH", "2")] + sft_adapter_args()
     log("CMD: " + " ".join(cmd))
     proc = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
