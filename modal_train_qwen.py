@@ -78,7 +78,10 @@ def train(limit: int | None, sft_start: int, sft_only: bool,
            "--sft-epochs", "1",
            "--max-length", "1024"]
     if trajectory_sft:
-        cmd += ["--trajectory-sft", "--max-length", "8192"]
+        # Long-context trajectory SFT: batch 1 (grad-accum 8) to fit 16K+ ctx;
+        # raise --trajectory-ctx toward 256K as GPU allows.
+        cmd += ["--trajectory-sft", "--trajectory-ctx", "16384",
+                "--batch-size", "1"]
     if resume_sft:
         cmd += ["--resume-sft", resume_sft]
     if not sft_only:
@@ -106,30 +109,61 @@ def main():
                              "needs agent_traces_full.jsonl in the repo)")
     parser.add_argument("--resume-sft", default="mateo0093/le-gros-chaton-qwen-sft-ckpt",
                         help="HF repo with SFT checkpoints to resume from")
-    parser.add_argument("--adapter", default="mateo0093/le-gros-chaton-qwen",
-                        help="Pretrained LoRA adapter to start from")
+    parser.add_argument("--adapter", default=None,
+                        help="Pretrained LoRA adapter to start from (local dir or HF "
+                             "repo id). If omitted, auto-resolves to the newest "
+                             "checkpoint-* in --resume-sft (nested sft/ adapter).")
     parser.add_argument("--model", default="Qwen/Qwen3.5-9B")
+    parser.add_argument("--eff-batch", type=int, default=16,
+                        help="Effective batch used by the resumed run (batch x grad_accum "
+                             "x GPUs). Used to derive sft_start from the checkpoint step.")
     args = parser.parse_args()
 
-    # Auto-detect the continuation offset from the adapter repo's progress marker.
-    if args.sft_start is None:
+    token = os.environ.get("HF_TOKEN", "")
+
+    # Auto-detect continuation state:
+    # 1. newest checkpoint-* subdir in --resume-sft (or the sft/ adapter nested
+    #    inside it) is the starting adapter
+    # 2. sft_start = checkpoint_step * eff_batch (rows already trained) unless
+    #    explicitly overridden or sft_progress.json says otherwise
+    if args.adapter is None:
         try:
-            from huggingface_hub import hf_hub_download, HfApi
-            token = os.environ.get("HF_TOKEN", "")
+            from huggingface_hub import snapshot_download, HfApi
             api = HfApi(token=token)
-            files = api.list_repo_files(args.adapter)
-            if "sft_progress.json" in files:
-                p = hf_hub_download(args.adapter, "sft_progress.json", token=token)
-                import json
-                prog = json.load(open(p))
-                args.sft_start = int(prog.get("trained_rows", 0))
-                print(f"[modal] Auto sft-start from progress marker: {args.sft_start}")
+            files = api.list_repo_files(args.resume_sft)
+            import re as _re
+            ck_dirs = sorted({f.split("/")[0] for f in files
+                              if f.split("/")[0].startswith("checkpoint-")},
+                             key=lambda d: int(d.split("-")[1]))
+            if ck_dirs:
+                latest = ck_dirs[-1]
+                print(f"[modal] Resuming from {args.resume_sft}/{latest}")
+                local = snapshot_download(
+                    repo_id=args.resume_sft, token=token,
+                    allow_patterns=[f"{latest}/**"],
+                    ignore_patterns=["*.bin", "optimizer.pt"],
+                )
+                # PEFT multi-adapter layout: checkpoint-800/sft/adapter_config.json
+                nested = os.path.join(local, latest, "sft")
+                args.adapter = nested if os.path.isdir(nested) else os.path.join(local, latest)
+                step = int(latest.split("-")[1])
+                if args.sft_start is None:
+                    args.sft_start = step * args.eff_batch
+                    print(f"[modal] Derived sft_start from checkpoint step: "
+                          f"{step} x {args.eff_batch} = {args.sft_start} rows")
             else:
-                args.sft_start = 0
-                print("[modal] No sft_progress.json in adapter — starting at row 0")
+                # No checkpoints: fall back to the base adapter repo (flat layout)
+                args.adapter = "mateo0093/le-gros-chaton-qwen"
+                if args.sft_start is None:
+                    args.sft_start = 0
+                    print("[modal] No checkpoints found — using base adapter, start=0")
         except Exception as e:
-            args.sft_start = 0
-            print(f"[modal] Could not read progress marker (start=0): {e}")
+            args.adapter = "mateo0093/le-gros-chaton-qwen"
+            if args.sft_start is None:
+                args.sft_start = 0
+            print(f"[modal] Could not resolve adapter ({e}) — using base adapter")
+
+    print(f"[modal] FINAL: adapter={args.adapter} sft_start={args.sft_start}")
 
     limit = None if args.full else 10000
     train.remote(
