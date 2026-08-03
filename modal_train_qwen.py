@@ -69,6 +69,8 @@ def train(limit: int | None = None, sft_start: int | None = None,
           adapter: str | None = None, model_name: str = "Qwen/Qwen3.5-9B",
           trajectory_sft: bool = False, eff_batch: int = 16):
     os.chdir("/root/proj")
+    # Reduce CUDA fragmentation (helped avoid OOMs on T4/L4 in testing)
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
     # Resolve adapter + sft_start (same logic as the local main()): if adapter
     # is None, pull the newest checkpoint-* from the resume repo and derive
@@ -118,14 +120,13 @@ def train(limit: int | None = None, sft_start: int | None = None,
            "--adapter", adapter,          # start from Kaggle's SFT adapter
            "--sft-start", str(sft_start),  # skip rows already trained on Kaggle
            "--limit", str(limit) if limit else "160000",
-           "--batch-size", "4",           # fits L4 24GB
            "--sft-epochs", "1",
-           "--max-length", "1024"]
+           "--max-length", "512",
+           "--batch-size", "1"]  # eff batch 8 (grad-accum 8); batch 4 @ 1024 OOMs L4
     if trajectory_sft:
         # Long-context trajectory SFT: batch 1 (grad-accum 8) to fit 16K+ ctx;
         # raise --trajectory-ctx toward 256K as GPU allows.
-        cmd += ["--trajectory-sft", "--trajectory-ctx", "16384",
-                "--batch-size", "1"]
+        cmd += ["--trajectory-sft", "--trajectory-ctx", "16384"]
     if resume_sft:
         cmd += ["--resume-sft", resume_sft]
     if not sft_only:
