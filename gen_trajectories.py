@@ -274,6 +274,17 @@ def main():
         dt = time.time() - t0
 
         verified, n_pass, n_total = verify_repo(repo_dir, tpl["test"])
+
+        # Self-review: the model reflects on what it did and learned. This gets
+        # baked into the weights via trajectory SFT — the model learns to
+        # self-assess without any prompt asking it to.
+        self_review = ""
+        try:
+            from agent_swe import _self_review
+            self_review = _self_review(model, tokenizer, device, tpl["issue"], result)
+        except Exception as e:
+            print(f"[gen] self-review skipped: {e}")
+
         entry = {
             "instance_id": result["instance_id"],
             "issue": tpl["issue"],
@@ -287,6 +298,7 @@ def main():
             "tool_calls": len([m for m in result.get("trace", [])
                                if m["role"] == "assistant"]),
             "seconds": round(dt, 1),
+            "self_review": self_review,
         }
         results.append(entry)
         if verified:

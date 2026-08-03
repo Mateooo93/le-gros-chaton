@@ -391,6 +391,50 @@ class SWEAgent:
             return ""
 
 
+def _self_review(model, tokenizer, device, issue: str, result: dict) -> str:
+    """Ask the model to reflect on its own run (Reflexion-style self-review).
+
+    The review is appended to the trajectory as the model's own words — the
+    trajectory SFT bakes this self-assessment into the weights (it's an
+    assistant turn, so it gets trained).
+    """
+    steps = result.get("trace", [])
+    # Compact view of what happened: tool calls + outcomes only
+    actions = []
+    for m in steps:
+        if m.get("role") != "assistant":
+            continue
+        import re
+        for cm in re.finditer(r'```(\w+)\s*\n(.*?)```', m.get("content", ""), re.DOTALL):
+            actions.append(f"{cm.group(1)}: {cm.group(2).strip()[:120]}")
+    actions_str = "\n".join(actions[-15:]) or "(no actions taken)"
+    prompt = (
+        "You just attempted to fix this issue: "
+        f"{issue[:300]}\n\n"
+        "The actions you took:\n"
+        f"{actions_str}\n\n"
+        "Self-review (write this for yourself):\n"
+        "1. What did I do and why?\n"
+        "2. What did I learn about this problem?\n"
+        "3. What would I do differently next time?\n"
+        "4. Am I confident my solution is correct, and why?\n"
+        "Keep it under 150 words, honest and specific."
+    )
+    try:
+        import torch
+        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+        with torch.no_grad():
+            out = model.generate(
+                **inputs, max_new_tokens=220,
+                temperature=0.7, top_p=0.95,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+        return tokenizer.decode(
+            out[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+    except Exception as e:
+        return f"(self-review failed: {e})"
+
+
 def collect_selfplay_data(model, tokenizer, task: str, repo_dir: str,
                           device: str = "cuda", max_pairs: int = 5):
     """Collect self-play training data: the model injects bugs then fixes them.
