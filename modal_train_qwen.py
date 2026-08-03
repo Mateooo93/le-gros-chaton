@@ -29,9 +29,12 @@ app = modal.App("le-gros-chaton-qwen")
 # transformers' [0.22.0, 0.23.0] range without the huggingface-hub<1.0
 # conflict that 0.22.0 has.
 image = (
-    modal.Image.debian_slim(python_version="3.11")
+    # nvidia/cuda devel base provides nvcc (needed to build causal-conv1d
+    # from source — debian_slim has no CUDA toolkit). CUDA 12.4 is
+    # binary-compatible with torch 2.10+cu128 at runtime.
+    modal.Image.from_registry("nvidia/cuda:12.4.1-devel-ubuntu22.04", add_python="3.11")
     .pip_install(
-        "torch==2.4.1+cu118",
+        "torch==2.10.0",
         "transformers==5.14.1",
         "tokenizers==0.22.1",
         "accelerate",
@@ -44,11 +47,10 @@ image = (
     )
     # Fast kernels for the hybrid linear-attention layers (24/32 layers are
     # linear-attention). Without these, transformers falls back to a slow torch
-    # path. fla needs a CUDA build at install time; if it fails, the run still
-    # works on the torch fallback (just slower).
+    # path (the log says "The fast path is not available...").
     .run_commands(
-        "pip install causal-conv1d --no-build-isolation || true",
-        "pip install fla --no-build-isolation || true",
+        "pip install wheel setuptools ninja && pip install causal-conv1d --no-build-isolation || true",
+        "pip install 'flash-linear-attention[cuda]' --no-build-isolation || true",
     )
     .add_local_dir(".", "/root/proj", ignore=["__pycache__", ".git", "*.pt", "*.bin"])
 )
