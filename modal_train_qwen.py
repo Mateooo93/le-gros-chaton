@@ -64,10 +64,52 @@ HF_SECRET = os.environ.get("CHATON_HF_SECRET", "chaton-hf")
     timeout=86400,
     secrets=[modal.Secret.from_name(HF_SECRET)],
 )
-def train(limit: int | None, sft_start: int, sft_only: bool,
-          resume_sft: str, adapter: str, model_name: str,
-          trajectory_sft: bool = False):
+def train(limit: int | None = None, sft_start: int | None = None,
+          sft_only: bool = True, resume_sft: str = "mateo0093/le-gros-chaton-qwen-sft-ckpt",
+          adapter: str | None = None, model_name: str = "Qwen/Qwen3.5-9B",
+          trajectory_sft: bool = False, eff_batch: int = 16):
     os.chdir("/root/proj")
+
+    # Resolve adapter + sft_start (same logic as the local main()): if adapter
+    # is None, pull the newest checkpoint-* from the resume repo and derive
+    # sft_start = step * eff_batch (rows already trained).
+    token = os.environ.get("HF_TOKEN", "")
+    if adapter is None:
+        try:
+            from huggingface_hub import snapshot_download, HfApi
+            api = HfApi(token=token)
+            files = api.list_repo_files(resume_sft)
+            ck_dirs = sorted({f.split("/")[0] for f in files
+                              if f.split("/")[0].startswith("checkpoint-")},
+                             key=lambda d: int(d.split("-")[1]))
+            if ck_dirs:
+                latest = ck_dirs[-1]
+                print(f"[modal] Resuming from {resume_sft}/{latest}")
+                local = snapshot_download(
+                    repo_id=resume_sft, token=token,
+                    allow_patterns=[f"{latest}/**"],
+                    ignore_patterns=["*.bin", "optimizer.pt"],
+                )
+                nested = os.path.join(local, latest, "sft")
+                adapter = nested if os.path.isdir(nested) else os.path.join(local, latest)
+                step = int(latest.split("-")[1])
+                if sft_start is None:
+                    sft_start = step * eff_batch
+                    print(f"[modal] Derived sft_start from checkpoint step: "
+                          f"{step} x {eff_batch} = {sft_start} rows")
+            else:
+                adapter = "mateo0093/le-gros-chaton-qwen"
+                if sft_start is None:
+                    sft_start = 0
+        except Exception as e:
+            adapter = "mateo0093/le-gros-chaton-qwen"
+            if sft_start is None:
+                sft_start = 0
+            print(f"[modal] Could not resolve adapter ({e}) — using base adapter")
+    if sft_start is None:
+        sft_start = 0
+    print(f"[modal] FINAL: adapter={adapter} sft_start={sft_start} "
+          f"limit={limit} sft_only={sft_only} trajectory={trajectory_sft}")
 
     # train_qwen.py reads HF_TOKEN from env for checkpoint pull/upload.
     import subprocess, sys
@@ -176,6 +218,7 @@ def main():
         adapter=args.adapter,
         model_name=args.model,
         trajectory_sft=args.trajectory_sft,
+        eff_batch=args.eff_batch,
     )
 
 
