@@ -122,7 +122,7 @@ def train(limit: int | None = None, sft_start: int | None = None,
            "--limit", str(limit) if limit else "160000",
            "--sft-epochs", "1",
            "--max-length", "512",
-           "--batch-size", "1"]  # eff batch 8 (grad-accum 8); batch 4 @ 1024 OOMs L4
+           "--batch-size", "2"]  # eff batch 16 (grad-accum 8); batch 2@512 fits L4 (1024 tok/step = 1/4 of the 4096 that OOM'd)
     if trajectory_sft:
         # Long-context trajectory SFT: batch 1 (grad-accum 8) to fit 16K+ ctx;
         # raise --trajectory-ctx toward 256K as GPU allows.
