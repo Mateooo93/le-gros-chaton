@@ -80,7 +80,7 @@ class SWEAgent:
     """Agentic loop for SWE-bench tasks."""
 
     def __init__(self, model, tokenizer, repo_dir: str, device: str = "cuda",
-                 tdd: bool = False):
+                 tdd: bool = False, self_aware: bool = True):
         self.model = model
         self.tokenizer = tokenizer
         self.repo_dir = repo_dir
@@ -88,11 +88,20 @@ class SWEAgent:
         self.history = []
         self.max_turns = 20
         self.tdd = tdd
+        self.self_aware = self_aware
 
     def run(self, issue: str, instance_id: str = "unknown") -> dict:
         """Run the agent on a SWE task."""
         tools_str = "\n".join(f"  {k}: {v['desc']}" for k, v in TOOLS.items())
         system = (TDD_PROMPT if self.tdd else SYSTEM_PROMPT).format(tools=tools_str)
+        # Self-awareness: identity + state-sheet + metacognition (Reflexion-style).
+        # This is what the trajectory SFT trains into the weights.
+        if getattr(self, "self_aware", True):
+            from self_awareness import SELF_AWARENESS_PROMPT
+            system = SELF_AWARENESS_PROMPT + (
+                "\nYou are a software engineer fixing bugs in a codebase. "
+                f"You have these tools:\n{tools_str}\n"
+                "Think step by step. Use one tool at a time. When done, use `finish`.")
 
         # Project context: CLAUDE.md/AGENTS.md files are in 80% of orgs
         # (State of AI Coding 2026). Inject repo-level instructions if present.
@@ -112,7 +121,10 @@ class SWEAgent:
 
         # Long-task token budget (research: context rot is the #1 failure
         # mode; agents must actively manage context, not accumulate it).
-        ctx_budget = 6000  # tokens of history kept for the model
+        # Qwen3.5-9B natively supports 262144 tokens (256K), so the budget is
+        # set well inside that — pruning only kicks in for extremely long
+        # sessions instead of the old 6000-token truncation.
+        ctx_budget = 65536  # tokens of history kept for the model (of 256K)
 
         for turn in range(self.max_turns):
             # Context window management: trim history to stay within budget.
@@ -429,6 +441,8 @@ def main():
     parser.add_argument("--4bit", dest="four_bit", action="store_true")
     parser.add_argument("--tdd", action="store_true",
                         help="Test-Driven Development loop: test first, then fix, then verify")
+    parser.add_argument("--no-self-aware", dest="self_aware", action="store_false",
+                        help="Disable the self-awareness prompt (identity + state-sheet)")
     parser.add_argument("--selfplay", action="store_true",
                         help="Collect self-play training data (bug inject + fix pairs)")
     args = parser.parse_args()
@@ -452,7 +466,8 @@ def main():
         collect_selfplay_data(model, tokenizer, issue, repo, device)
         return
 
-    agent = SWEAgent(model, tokenizer, repo, device=device, tdd=args.tdd)
+    agent = SWEAgent(model, tokenizer, repo, device=device, tdd=args.tdd,
+                     self_aware=args.self_aware)
     result = agent.run(issue)
 
     print(f"\n{'='*50}")
