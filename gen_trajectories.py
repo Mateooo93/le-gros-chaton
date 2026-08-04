@@ -249,6 +249,13 @@ def main():
                         help="Also save failed runs (for negative mining)")
     parser.add_argument("--only-verified", action="store_true",
                         help="Only keep runs that pass the hidden test")
+    parser.add_argument("--samples", type=int, default=1,
+                        help="Generate N trajectories per task (diversity sampling)")
+    parser.add_argument("--temp", type=float, default=0.9,
+                        help="Sampling temperature for diverse solutions")
+    parser.add_argument("--novelty-thresh", type=float, default=0.5,
+                        help="Keep a solution if its max n-gram overlap with already-kept \
+                              solutions for the same task is below this (0-1)")
     args = parser.parse_args()
 
     print("[gen] Loading model...")
@@ -268,44 +275,63 @@ def main():
         passed, np_, nt_ = verify_repo(repo_dir, tpl["test"])
         assert not passed, f"bug not actually injected for {tpl['id']}"
 
-        agent = SWEAgent(model, tokenizer, repo_dir, device=device, tdd=False)
-        t0 = time.time()
-        result = agent.run(tpl["issue"], instance_id=f"{tpl['id']}_{i}")
-        dt = time.time() - t0
+        # --- Diversity sampling: run the agent --samples times at high temp,
+        # keep solutions that are verified AND novel vs already-kept ones. ---
+        kept_for_task = []
+        for s in range(args.samples):
+            agent = SWEAgent(model, tokenizer, repo_dir, device=device, tdd=False,
+                             temperature=args.temp)
+            t0 = time.time()
+            result = agent.run(tpl["issue"], instance_id=f"{tpl['id']}_{i}_{s}")
+            dt = time.time() - t0
 
-        verified, n_pass, n_total = verify_repo(repo_dir, tpl["test"])
+            verified, n_pass, n_total = verify_repo(repo_dir, tpl["test"])
 
-        # Self-review: the model reflects on what it did and learned. This gets
-        # baked into the weights via trajectory SFT — the model learns to
-        # self-assess without any prompt asking it to.
-        self_review = ""
-        try:
-            from agent_swe import _self_review
-            self_review = _self_review(model, tokenizer, device, tpl["issue"], result)
-        except Exception as e:
-            print(f"[gen] self-review skipped: {e}")
+            # Novelty filter: skip if the patch is too similar to one we already
+            # kept for this task (n-gram overlap on the diff).
+            patch = result.get("patch", "")
+            if verified and kept_for_task:
+                overlap = max(_patch_overlap(patch, kp["patch"])
+                              for kp in kept_for_task)
+                if overlap > args.novelty_thresh:
+                    print(f"[gen]   {s+1}/{args.samples} | {tpl['id']} | "
+                          f"verified but redundant (overlap {overlap:.2f}) — skip")
+                    continue
 
-        entry = {
-            "instance_id": result["instance_id"],
-            "issue": tpl["issue"],
-            "messages": [{"role": m["role"], "content": m["content"]}
-                         for m in result.get("trace", [])],
-            "turns": result["turns"],
-            "patch": result.get("patch", ""),
-            "verified": verified,
-            "n_pass": n_pass,
-            "n_total": n_total,
-            "tool_calls": len([m for m in result.get("trace", [])
-                               if m["role"] == "assistant"]),
-            "seconds": round(dt, 1),
-            "self_review": self_review,
-        }
-        results.append(entry)
-        if verified:
-            n_success += 1
-        print(f"[gen] {i+1}/{args.n} | {tpl['id']} | verified={verified} "
-              f"({n_pass}/{n_total}) | turns={entry['turns']} | {dt:.0f}s")
-        shutil.rmtree(repo_dir, ignore_errors=True)
+            # Self-review: the model reflects on what it did and learned. This gets
+            # baked into the weights via trajectory SFT — the model learns to
+            # self-assess without any prompt asking it to.
+            self_review = ""
+            try:
+                from agent_swe import _self_review
+                self_review = _self_review(model, tokenizer, device, tpl["issue"], result)
+            except Exception as e:
+                print(f"[gen] self-review skipped: {e}")
+
+            entry = {
+                "instance_id": result["instance_id"],
+                "issue": tpl["issue"],
+                "messages": [{"role": m["role"], "content": m["content"]}
+                             for m in result.get("trace", [])],
+                "turns": result["turns"],
+                "patch": patch,
+                "verified": verified,
+                "n_pass": n_pass,
+                "n_total": n_total,
+                "tool_calls": len([m for m in result.get("trace", [])
+                                   if m["role"] == "assistant"]),
+                "seconds": round(dt, 1),
+                "self_review": self_review,
+                "sample": s,
+            }
+            results.append(entry)
+            if verified:
+                n_success += 1
+                kept_for_task.append(entry)
+            print(f"[gen] {i+1}/{args.n} s{s+1}/{args.samples} | {tpl['id']} | "
+                  f"verified={verified} ({n_pass}/{n_total}) | "
+                  f"turns={entry['turns']} | {dt:.0f}s")
+            shutil.rmtree(repo_dir, ignore_errors=True)
 
     # Filter: keep verified runs (or all if --keep-failed)
     kept = results
@@ -323,6 +349,31 @@ def main():
     print(f"[gen] Verified rate: {n_success/max(1,len(results))*100:.0f}%")
 
     shutil.rmtree(work, ignore_errors=True)
+
+
+def _patch_overlap(patch_a: str, patch_b: str) -> float:
+    """N-gram overlap (Jaccard) between two patches, 0 (disjoint) to 1 (same).
+
+    Used for novelty filtering in diversity sampling. Patches are compared on
+    their added-line n-grams (size 2) so small formatting differences don't
+    hide genuinely different strategies, and vice versa.
+    """
+    import re
+
+    def lines(p):
+        added = [l[1:].strip() for l in p.splitlines() if l.startswith("+")
+                 and not l.startswith("+++")]
+        return [w for l in added for w in re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", l)]
+
+    def ngrams(toks, n=2):
+        return set(zip(*[toks[i:] for i in range(n)])) if len(toks) >= n else set(toks)
+
+    a, b = ngrams(lines(patch_a)), ngrams(lines(patch_b))
+    if not a and not b:
+        return 1.0  # both empty => treat as identical (avoid keeping dupes)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
 
 
 if __name__ == "__main__":

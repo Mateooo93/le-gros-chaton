@@ -94,6 +94,75 @@ def load_problems(source: str, limit: int | None = None) -> list:
 
 
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Diversity / novelty rewards (creativity objective)
+# ---------------------------------------------------------------------------
+
+
+def _n_gram_set(text: str, n: int = 3) -> set:
+    """Token-level n-gram set for novelty scoring."""
+    toks = text.split()
+    if len(toks) < n:
+        return set(toks)
+    return set(zip(*[toks[i:] for i in range(n)]))
+
+
+def novelty_score(candidate: str, others: list[str]) -> float:
+    """How novel is *candidate* relative to *others*? 0 (identical to some
+    other solution) .. 1 (shares nothing with any other solution).
+
+    Uses max Jaccard n-gram overlap across all others, inverted.
+    """
+    if not others:
+        return 1.0
+    cand = _n_gram_set(candidate)
+    if not cand:
+        return 0.0
+    max_overlap = max(len(cand & _n_gram_set(o)) / len(cand | _n_gram_set(o))
+                      if _n_gram_set(o) else 0.0 for o in others)
+    return 1.0 - max_overlap
+
+
+def diversity_reward(completions: list[str], rewards: list[float],
+                     novelty_bonus: float = 0.2) -> list[float]:
+    """Add a novelty bonus to verifier rewards: a correct solution that is
+    unlike the other sampled solutions gets extra reward (pushing the policy
+    to explore new strategies instead of converging on one memorized style).
+
+    Failed solutions are NOT given novelty credit (we don't want to reward
+    creative garbage) — but they still participate as "others" for the
+    novelty computation, so a correct-but-redundant solution is penalised
+    relative to a correct-and-fresh one.
+    """
+    out = list(rewards)
+    correct = [c for c, r in zip(completions, rewards) if r > 0]
+    if not correct:
+        return out
+    for i, (comp, r) in enumerate(zip(completions, rewards)):
+        if r > 0:
+            others = [c for j, c in enumerate(completions) if j != i]
+            out[i] = r + novelty_bonus * novelty_score(comp, others)
+    return out
+
+
+def strategy_switch_reward(rollout_steps: list[str]) -> float:
+    """Reward trying a NEW approach after a failed attempt (0..1).
+
+    Consumes a list of action descriptions from one agent rollout (e.g. the
+    tool calls). Returns 1.0 if the agent attempted >=2 different strategies
+    (measured by n-gram distance between consecutive attempts), else 0.0.
+    This is the "learn from failure, don't repeat it" objective — the
+    behavioural backbone of creativity.
+    """
+    if len(rollout_steps) < 2:
+        return 0.0
+    switches = 0
+    for prev, cur in zip(rollout_steps, rollout_steps[1:]):
+        if novelty_score(cur, [prev]) > 0.5:  # meaningfully different action
+            switches += 1
+    return min(1.0, switches / max(1, len(rollout_steps) - 1))
+
+
 # Verifier-based reward
 # ---------------------------------------------------------------------------
 
@@ -153,6 +222,8 @@ def grpo_step(
     epsilon: float,
     device: str,
     verbose: bool = False,
+    diversity: bool = False,
+    novelty_bonus: float = 0.2,
 ) -> RLVRStep | None:
     """Run one GRPO step on *problem*.
 
@@ -200,6 +271,14 @@ def grpo_step(
     # If no completion passed, skip this step (no gradient signal)
     if max(rewards) == 0.0:
         return None
+
+    # --- Creativity: shape rewards with a novelty bonus ---
+    # A correct solution unlike the other sampled solutions gets extra reward,
+    # pushing the policy to explore fresh strategies instead of converging on
+    # one memorized style.
+    if diversity:
+        shaped = diversity_reward(completions, rewards, novelty_bonus=novelty_bonus)
+        rewards = shaped
 
     # --- 3. Compute old log-probs and advantages ---
     with torch.no_grad():
@@ -296,6 +375,8 @@ def train(
     out_path: str = "model_rlvr.pt",
     ckpt_interval: int = 50,
     verbose: bool = True,
+    diversity: bool = False,
+    novelty_bonus: float = 0.2,
 ):
     """Run the GRPO training loop.
 
@@ -327,6 +408,7 @@ def train(
                 n_completions=n_completions, max_new_tokens=max_new_tokens,
                 temperature=temperature, top_p=top_p, epsilon=epsilon,
                 device=device, verbose=(verbose and pi == 0),
+                diversity=diversity, novelty_bonus=novelty_bonus,
             )
 
             if step is not None:
@@ -391,6 +473,11 @@ def main():
     ap.add_argument("--out", default="model_rlvr.pt")
     ap.add_argument("--ckpt-interval", type=int, default=50)
     ap.add_argument("--device", default="")
+    ap.add_argument("--diversity", action="store_true",
+                    help="Shape rewards with a novelty bonus (creativity objective): \
+correct solutions unlike the group's others get extra reward")
+    ap.add_argument("--novelty-bonus", type=float, default=0.2,
+                    help="Max reward added for a novel correct solution (0-1)")
 
     args = ap.parse_args()
     train(
@@ -401,6 +488,7 @@ def main():
         epsilon=args.epsilon, limit=args.limit,
         device=args.device, out_path=args.out,
         ckpt_interval=args.ckpt_interval,
+        diversity=args.diversity, novelty_bonus=args.novelty_bonus,
     )
 
 

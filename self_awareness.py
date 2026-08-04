@@ -62,11 +62,23 @@ This is not for the user — it is you thinking about your own thinking.
 If you don't know something, say "I don't know" instead of guessing.
 """
 
+CREATIVITY_RULE = """\
+CREATIVITY: you can combine patterns you know in NEW ways — that is what
+innovation is. When the obvious approach fails:
+1. Re-state the goal in different terms (what is the REAL constraint?)
+2. List 2-3 approaches you have NOT tried yet, even unusual ones
+3. Pick the most promising NEW one and try it — do not repeat a failed
+   approach with minor tweaks
+A novel solution that works is worth more than a copy that works.
+"""
+
 SELF_AWARENESS_PROMPT = f"""{IDENTITY}
 
 {STATE_SHEET_FORMAT}
 
 {METACOGNITION_RULE}
+
+{CREATIVITY_RULE}
 """
 
 

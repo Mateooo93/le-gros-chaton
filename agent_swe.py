@@ -80,7 +80,7 @@ class SWEAgent:
     """Agentic loop for SWE-bench tasks."""
 
     def __init__(self, model, tokenizer, repo_dir: str, device: str = "cuda",
-                 tdd: bool = False, self_aware: bool = True):
+                 tdd: bool = False, self_aware: bool = True, temperature: float = 0.3):
         self.model = model
         self.tokenizer = tokenizer
         self.repo_dir = repo_dir
@@ -89,6 +89,7 @@ class SWEAgent:
         self.max_turns = 20
         self.tdd = tdd
         self.self_aware = self_aware
+        self.temperature = temperature
 
     def run(self, issue: str, instance_id: str = "unknown") -> dict:
         """Run the agent on a SWE task."""
@@ -146,7 +147,7 @@ class SWEAgent:
             with torch.no_grad():
                 out = self.model.generate(
                     **inputs, max_new_tokens=512,
-                    temperature=0.3, top_p=0.95,
+                    temperature=self.temperature, top_p=0.95,
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
             response = self.tokenizer.decode(
