@@ -278,11 +278,18 @@ def main():
         # --- Diversity sampling: run the agent --samples times at high temp,
         # keep solutions that are verified AND novel vs already-kept ones. ---
         kept_for_task = []
+        # Real repo file list + buggy-file hint (SWE-bench style: the issue
+        # names the file; this stops the model hallucinating filenames like
+        # 'teich.py' from Fable5 training instead of reading our repo).
+        real_files = ", ".join(sorted(tpl["files"].keys()))
+        bug_hint = (f"\n\nHint: the bug is in {tpl['bug']}. "
+                    f"Repo files: {real_files}.")
         for s in range(args.samples):
             agent = SWEAgent(model, tokenizer, repo_dir, device=device, tdd=False,
                              temperature=args.temp)
             t0 = time.time()
-            result = agent.run(tpl["issue"], instance_id=f"{tpl['id']}_{i}_{s}")
+            result = agent.run(tpl["issue"] + bug_hint,
+                               instance_id=f"{tpl['id']}_{i}_{s}")
             dt = time.time() - t0
 
             verified, n_pass, n_total = verify_repo(repo_dir, tpl["test"])

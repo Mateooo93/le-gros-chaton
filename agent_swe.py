@@ -121,7 +121,7 @@ class SWEAgent:
         ]
 
         self.tool_calls_used = 0
-        max_tool_calls = 40  # hard cap to prevent runaway loops
+        max_tool_calls = 60  # hard cap to prevent runaway loops
         self.trace = []  # full message history (for training data)
         self._msgs = messages  # prune tool mutates this in place
 
