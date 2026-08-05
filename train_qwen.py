@@ -762,7 +762,7 @@ def main():
                 lr=args.lr, epochs=args.sft_epochs,
                 batch_size=args.batch_size, max_length=args.trajectory_ctx,
                 resume_from_checkpoint=resolve_sft_ckpt(args.resume_sft),
-                start=args.sft_start, trajectory=True,
+                start=0, trajectory=True,  # fresh dataset — no row offset
             )
             try:
                 with open(os.path.join(sft_path, "sft_progress.json"), "w") as f:
