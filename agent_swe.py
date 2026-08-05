@@ -90,6 +90,7 @@ class SWEAgent:
         self.tdd = tdd
         self.self_aware = self_aware
         self.temperature = temperature
+        self._recent_actions = []  # loop detection
 
     def run(self, issue: str, instance_id: str = "unknown") -> dict:
         """Run the agent on a SWE task."""
@@ -186,6 +187,10 @@ class SWEAgent:
                 continue  # loop again with the same turn budget
 
             finished = False
+            # Loop detection: repeated identical tool calls = stuck. Inject
+            # corrective feedback instead of letting it burn the cap (research:
+            # SWE-Protégé got +25.4 SWE-bench from penalizing action loops).
+            recent = [a for a in self._recent_actions if a]
             for action, args_text in actions:
                 if action == "finish":
                     print(f"\n✅ Agent finished: {args_text[:200]}")
@@ -193,6 +198,27 @@ class SWEAgent:
                     finished = True
                     break
 
+                sig = (action, args_text[:60])
+                dup_count = sum(1 for a in recent[-8:] if a == sig)
+                if dup_count >= 3:  # same tool+args 3x in the last 8 calls
+                    correction = (
+                        f"You have called {action}({args_text[:50]}) {dup_count} times "
+                        "recently. This is a LOOP. STOP repeating the same action.\n"
+                        "Update your state-sheet FAILED section and try something "
+                        "genuinely different:\n"
+                        "- read a DIFFERENT file or search_code for the bug pattern\n"
+                        "- write_file to apply the fix you believe is needed\n"
+                        "- run_test to verify\n"
+                        "- or finish if you already fixed it"
+                    )
+                    messages.append({"role": "user", "content": correction})
+                    self.trace.append({"role": "user", "content": correction})
+                    print(f"\n⚠ LOOP DETECTED ({action} x{dup_count}) — corrective "
+                          f"feedback sent (turn {turn + 1})")
+                    self._recent_actions = []  # reset after correction
+                    break  # don't execute the looped action; get a fresh response
+
+                self._recent_actions.append(sig)
                 self.tool_calls_used += 1
                 if self.tool_calls_used > max_tool_calls:
                     print(f"\n⚠ Hit tool-call cap ({max_tool_calls}). Stopping.")
