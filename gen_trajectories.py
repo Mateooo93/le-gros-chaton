@@ -331,7 +331,10 @@ def main():
             print(f"[gen] {i+1}/{args.n} s{s+1}/{args.samples} | {tpl['id']} | "
                   f"verified={verified} ({n_pass}/{n_total}) | "
                   f"turns={entry['turns']} | {dt:.0f}s")
-            shutil.rmtree(repo_dir, ignore_errors=True)
+
+        # Cleanup AFTER all samples for this task (sample s=0 deleting the
+        # repo while s>=1 still needs it caused FileNotFoundError).
+        shutil.rmtree(repo_dir, ignore_errors=True)
 
     # Filter: keep verified runs (or all if --keep-failed)
     kept = results

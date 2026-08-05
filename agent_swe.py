@@ -146,7 +146,7 @@ class SWEAgent:
 
             with torch.no_grad():
                 out = self.model.generate(
-                    **inputs, max_new_tokens=512,
+                    **inputs, max_new_tokens=900,
                     temperature=self.temperature, top_p=0.95,
                     pad_token_id=self.tokenizer.eos_token_id,
                 )
@@ -161,8 +161,24 @@ class SWEAgent:
             # Parse tool calls (support multiple per turn = parallel execution)
             actions = self._parse_actions(response)
 
+            # No tool call parsed: do NOT silently finish — the model may have
+            # run out of tokens mid-call or degenerated. Send corrective
+            # feedback and let it retry (self-correction is what we train for).
             if not actions:
-                actions = [("finish", "Task appears complete or unclear.")]
+                correction = (
+                    "You did not make a tool call. You MUST call exactly one "
+                    "tool using this format:\n"
+                    "```tool_name\nargs```\n"
+                    "Available tools: read_file, write_file, search_code, "
+                    "list_dir, run_test, finish.\n"
+                    "Your state-sheet is fine, but you must now take an action "
+                    "with a tool call before you can finish."
+                )
+                messages.append({"role": "user", "content": correction})
+                self.trace.append({"role": "user", "content": correction})
+                print(f"\n⚠ No tool call in response — corrective feedback sent "
+                      f"(turn {turn + 1})")
+                continue  # loop again with the same turn budget
 
             finished = False
             for action, args_text in actions:
