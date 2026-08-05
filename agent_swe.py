@@ -102,7 +102,12 @@ class SWEAgent:
             system = SELF_AWARENESS_PROMPT + (
                 "\nYou are a software engineer fixing bugs in a codebase. "
                 f"You have these tools:\n{tools_str}\n"
-                "Think step by step. Use one tool at a time. When done, use `finish`.")
+                "Think step by step. Use one tool at a time. When done, use `finish`.\n"
+                "\nTOOL FORMAT — you MUST emit tool calls EXACTLY like this:\n"
+                "```list_dir\nsrc\n```\n"
+                "```read_file\nsrc/main.py\n```\n"
+                "```run_test\npytest tests/test_main.py\n```\n"
+                "```finish\nFixed the bug.\n```\n")
 
         # Project context: CLAUDE.md/AGENTS.md files are in 80% of orgs
         # (State of AI Coding 2026). Inject repo-level instructions if present.
