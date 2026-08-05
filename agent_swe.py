@@ -248,11 +248,20 @@ class SWEAgent:
     def _parse_actions(self, text: str) -> list[tuple[str, str]]:
         """Parse ALL tool calls from model output (for parallel execution).
 
-        Supports multiple ```tool\nargs``` blocks in one response.
+        Accepts multiple syntaxes (the SFT model emits different bracket
+        styles depending on what it was trained on):
+          ```tool\nargs```     (canonical)
+          [tool\nargs]         (observed from the fat cat)
+          <tool>args</tool>     (fallback)
         """
         actions = []
         for m in re.finditer(r'```(\w+)\s*\n(.*?)```', text, re.DOTALL):
             actions.append((m.group(1), m.group(2).strip()))
+
+        # Fat-cat style: [tool\nargs] blocks
+        if not actions:
+            for m in re.finditer(r'\[(\w+)\s*\n(.*?)\]', text, re.DOTALL):
+                actions.append((m.group(1), m.group(2).strip()))
 
         # Fallback: <tool>args</tool> blocks
         if not actions:
@@ -265,6 +274,11 @@ class SWEAgent:
         """Parse tool calls from model output."""
         # Look for ```tool_name\nargs\n``` pattern
         m = re.search(r'```(\w+)\s*\n(.*?)```', text, re.DOTALL)
+        if m:
+            return m.group(1), m.group(2).strip()
+
+        # Fat-cat style: [tool_name\nargs] blocks
+        m = re.search(r'\[(\w+)\s*\n(.*?)\]', text, re.DOTALL)
         if m:
             return m.group(1), m.group(2).strip()
 
