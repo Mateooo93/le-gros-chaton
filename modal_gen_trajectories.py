@@ -19,6 +19,7 @@ app = modal.App("le-gros-chaton-trajectories")
 
 image = (
     modal.Image.from_registry("nvidia/cuda:12.4.1-devel-ubuntu22.04", add_python="3.11")
+    .apt_install("git")
     .pip_install(
         "torch==2.10.0",
         "transformers==5.14.1",
