@@ -57,6 +57,11 @@ def gen(n: int = 50, samples: int = 5, temp: float = 0.9,
     os.chdir("/root/proj")
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
+    # make_repo() runs git init/commit — the container has no git identity.
+    import subprocess as _sp
+    _sp.run(["git", "config", "--global", "user.email", "chaton@modal.local"])
+    _sp.run(["git", "config", "--global", "user.name", "Le Gros Chaton"])
+
     import subprocess, sys, json
     from huggingface_hub import HfApi
 
