@@ -370,6 +370,29 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
     print(f"[train] {n_examples} examples | {n_dev} GPU(s) | eff_batch={eff_batch} "
           f"| {total_steps} steps | checkpoint every {save_every} steps (~20%)")
 
+    # --- Resume fix: if we're continuing from a checkpoint, the Trainer
+    # restores global_step from it, but max_steps is computed from the
+    # REMAINING dataset only. If global_step > max_steps (e.g. resume at 6200
+    # of a 3799-step tail), HF Trainer concludes "already done" and exits in
+    # 0 seconds — silently skipping the rest of training (this bit us).
+    # Solution: set max_steps to the ABSOLUTE endpoint (resume_step + total).
+    max_steps_arg = None
+    resume_global_step = 0
+    if resume_from_checkpoint:
+        try:
+            import json as _json
+            with open(os.path.join(resume_from_checkpoint, "trainer_state.json")) as f:
+                _st = _json.load(f)
+            resume_global_step = int(_st.get("global_step", 0))
+            if resume_global_step >= resume_global_step + total_steps - 1:
+                # Sanity guard: never exit early just because the counter looks done.
+                pass
+        except Exception as e:
+            print(f"[train] could not read resume checkpoint state: {e}")
+        max_steps_arg = resume_global_step + total_steps
+        print(f"[train] Resuming at global_step={resume_global_step}; "
+              f"absolute max_steps={max_steps_arg} (remaining {total_steps})")
+
     training_args = TrainingArguments(
         output_dir=out_dir,
         per_device_train_batch_size=batch_size,
@@ -377,6 +400,7 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
         learning_rate=lr,
         warmup_steps=100,
         num_train_epochs=epochs,
+        max_steps=max_steps_arg,
         logging_steps=10,
         save_steps=save_every,
         save_total_limit=10,
@@ -694,7 +718,12 @@ def main():
                         help="Resume SFT from a local checkpoint dir or an HF Hub "
                              "repo (auto-pulls the latest checkpoint-* subdir)")
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--max-length", type=int, default=512)
+    parser.add_argument("--max-length", type=int, default=512,
+                        help="Max tokens per training sequence (SFT)")
+    parser.add_argument("--trajectory-ctx", type=int, default=16384,
+                        help="Context length for trajectory SFT — Qwen3.5-9B natively "
+                             "supports 262144 (256K); raise as hardware allows "
+                             "(8K T4, 16-32K L4, 64K+ A100/H100)")
     parser.add_argument("--output", default="qwen_coding_agent")
     args = parser.parse_args()
 
@@ -731,7 +760,7 @@ def main():
                 model, tokenizer, dataset,
                 out_dir=f"{args.output}_sft",
                 lr=args.lr, epochs=args.sft_epochs,
-                batch_size=args.batch_size, max_length=args.max_length,
+                batch_size=args.batch_size, max_length=args.trajectory_ctx,
                 resume_from_checkpoint=resolve_sft_ckpt(args.resume_sft),
                 start=args.sft_start, trajectory=True,
             )
