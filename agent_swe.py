@@ -190,7 +190,8 @@ class SWEAgent:
             # Loop detection: repeated identical tool calls = stuck. Inject
             # corrective feedback instead of letting it burn the cap (research:
             # SWE-Protégé got +25.4 SWE-bench from penalizing action loops).
-            recent = [a for a in self._recent_actions if a]
+            # NOTE: check against the LIVE list so duplicates within a single
+            # multi-call response are caught too (not a pre-loop snapshot).
             for action, args_text in actions:
                 if action == "finish":
                     print(f"\n✅ Agent finished: {args_text[:200]}")
@@ -199,7 +200,8 @@ class SWEAgent:
                     break
 
                 sig = (action, args_text[:60])
-                dup_count = sum(1 for a in recent[-8:] if a == sig)
+                dup_count = sum(1 for a in self._recent_actions[-8:]
+                                if a == sig)
                 if dup_count >= 3:  # same tool+args 3x in the last 8 calls
                     correction = (
                         f"You have called {action}({args_text[:50]}) {dup_count} times "
