@@ -443,6 +443,10 @@ def _self_review(model, tokenizer, device, issue: str, result: dict) -> str:
         import re
         for cm in re.finditer(r'```(\w+)\s*\n(.*?)```', m.get("content", ""), re.DOTALL):
             actions.append(f"{cm.group(1)}: {cm.group(2).strip()[:120]}")
+        # Fat-cat bracket style: [tool\nargs]
+        if not actions:
+            for cm in re.finditer(r'\[(\w+)\s*\n(.*?)\]', m.get("content", ""), re.DOTALL):
+                actions.append(f"{cm.group(1)}: {cm.group(2).strip()[:120]}")
     actions_str = "\n".join(actions[-15:]) or "(no actions taken)"
     prompt = (
         "You just attempted to fix this issue: "

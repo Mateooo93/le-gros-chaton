@@ -93,7 +93,21 @@ def gen(n: int = 50, samples: int = 5, temp: float = 0.9,
     if use_4bit:
         cmd += ["--use-4bit"]
     print("[gen-modal] CMD:", " ".join(cmd))
-    r = subprocess.run(cmd)
+    try:
+        r = subprocess.run(cmd)
+    except Exception as e:
+        # Dump the real error somewhere we can read it (Modal swallows the
+        # traceback when a subprocess dies mid-run).
+        import traceback as _tb
+        err = _tb.format_exc()
+        print("[gen-modal] SUBPROCESS CRASHED:", err)
+        if token:
+            from huggingface_hub import HfApi
+            HfApi(token=token).upload_file(
+                path_or_fileobj=err.encode(),
+                path_in_repo="gen_traces_error.txt",
+                repo_id=upload_repo, repo_type="dataset")
+        raise
     if r.returncode != 0:
         raise RuntimeError(f"gen_trajectories.py failed rc={r.returncode}")
 
