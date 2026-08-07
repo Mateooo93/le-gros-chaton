@@ -104,8 +104,11 @@ log "merged -> $MERGE_OUT_DIR ($MERGE_OUT_REPO)"
 
 # ---- 4. Terminal-Bench eval of the MERGED model ---------------------------
 log "4/5 TB 2.0 eval (merged model=$MERGE_OUT_DIR)"
+: "${TB_ATTEMPTS:=5}"           # leaderboard protocol = 5 attempts/task
+: "${TB_TASKS:=}"               # empty = full task set; or --tasks a,b,c
 $PY eval/tbench_eval.py \
   --local-model "$MERGE_OUT_DIR" --four-bit --adapter traj_sft \
+  --attempts "$TB_ATTEMPTS" $TB_TASKS \
   2>/dev/null \
   || log "eval needs a served model; run: python modal_serve_qwen.py + tbench_eval.py --server <url>"
 
