@@ -292,7 +292,7 @@ def main() -> None:
     MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen3.5-9B")
     ADAPTER = os.environ.get("ADAPTER", "mateo0093/le-gros-chaton-qwen")
     TRACES_REPO = os.environ.get("TRACES_REPO", "mateo0093/le-gros-chaton-traces")
-    TRACES_FILE = os.environ.get("TRACES_FILE", "agent_traces_full.jsonl")
+    TRACES_FILE = os.environ.get("TRACES_FILE", "agent_traces_normalized.jsonl")
     OUT_REPO = os.environ.get("OUT_REPO", "mateo0093/le-gros-chaton-qwen")
     TRAJECTORY_CTX = int(os.environ.get("TRAJECTORY_CTX", "16384"))
     BATCH = int(os.environ.get("BATCH", "1"))
