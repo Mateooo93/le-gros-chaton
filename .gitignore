@@ -48,3 +48,5 @@ training/
 # Root-level notebook copies (use notebooks/ dir)
 chaton_*.ipynb
 kaggle/kaggle_train_upload.py
+kaggle_output/le-gros-chaton
+kaggle_output2/le-gros-chaton
