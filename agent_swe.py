@@ -30,6 +30,7 @@ TOOLS = {
     "search_code": {"desc": "Search for a pattern in the codebase", "args": "<pattern>"},
     "list_dir": {"desc": "List files in a directory", "args": "<dirpath>"},
     "run_test": {"desc": "Run a specific test", "args": "<test_command>"},
+    "run_cmd": {"desc": "Run an arbitrary shell command (bash) in the working directory", "args": "<command>"},
     "prune": {"desc": "Drop old messages from context to stay within budget (long tasks)", "args": "<keep_last_N>"},
     "finish": {"desc": "Submit the patch and finish", "args": "<explanation>"},
 }
@@ -175,8 +176,7 @@ class SWEAgent:
                     "You did not make a tool call. You MUST call exactly one "
                     "tool using this format:\n"
                     "```tool_name\nargs```\n"
-                    "Available tools: read_file, write_file, search_code, "
-                    "list_dir, run_test, finish.\n"
+                    f"Available tools: {', '.join(TOOLS)}.\n"
                     "Your state-sheet is fine, but you must now take an action "
                     "with a tool call before you can finish."
                 )
@@ -367,6 +367,7 @@ class SWEAgent:
             "read_file": "File may not exist or path wrong. Use list_dir to find it.",
             "search_code": "Pattern may not match. Try simpler pattern or check structure.",
             "run_test": "Test command failed. Check error; may be syntax or missing dep.",
+            "run_cmd": "Command failed (non-zero exit). Read the error and retry with a corrected command.",
             "list_dir": "Directory may not exist. Try repo root or check typos.",
             "write_file": "Could not write. Check parent directory exists.",
         }
@@ -418,6 +419,18 @@ class SWEAgent:
                     capture_output=True, text=True, timeout=60,
                 )
                 return (result.stdout + result.stderr)[:2000] or "No output"
+
+            elif action == "run_cmd":
+                # General-purpose bash tool (Terminal-Bench tasks need
+                # arbitrary shell commands, not just tests). Same host-shell
+                # semantics as run_test; the TB harness overrides this method
+                # to execute inside the task sandbox instead.
+                result = subprocess.run(
+                    args_text, shell=True, cwd=self.repo_dir,
+                    capture_output=True, text=True, timeout=300,
+                )
+                out = (result.stdout + result.stderr)[:2000] or "No output"
+                return f"{out}\n[exit code {result.returncode}]"
 
             elif action == "prune":
                 try:
