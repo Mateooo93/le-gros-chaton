@@ -19,6 +19,25 @@ for i in $(seq 1 $MAX_RESTARTS); do
     if [ $RC -eq 0 ]; then
         # generator ran to completion (all done or all skipped)
         echo "=== supervisor: generator finished cleanly, stopping ===" >> "$LOG"
+        # Sync final traces + normalized copy to HF so the SFT pipeline
+        # sees everything without manual steps.
+        N=$(wc -l < agent_traces_full.jsonl 2>/dev/null || echo 0)
+        if [ "$N" -gt 0 ]; then
+            echo "=== supervisor: syncing $N traces to HF ===" >> "$LOG"
+            .venv/bin/python colab/normalize_traces.py >> "$LOG" 2>&1 || true
+            HF_TOKEN="HF_TOKEN_PLACEHOLDER" .venv/bin/python - "$N" >> "$LOG" 2>&1 <<'PYEOF' || true
+import os, sys
+from huggingface_hub import HfApi
+api = HfApi(token=os.environ.get("HF_TOKEN"))
+n = sys.argv[1]
+for f in ("agent_traces_full.jsonl", "agent_traces_normalized.jsonl"):
+    api.upload_file(path_or_fileobj=f, path_in_repo=f,
+                    repo_id="mateo0093/le-gros-chaton-traces",
+                    repo_type="dataset",
+                    commit_message=f"final sync {n} traces")
+print(f"synced {n} traces")
+PYEOF
+        fi
         break
     fi
     # Check if we're making progress (traces file growing)
