@@ -179,6 +179,137 @@ print("OK")
 ''',
             "issue": "max_subarray returns wrong max for some inputs. Fix it.",
         },
+        # ---- String: anagram check wrong counting direction ----
+        {
+            "id": "is_anagram",
+            "files": {
+                "strings.py": '''def is_anagram(a, b):
+    if len(a) != len(b):
+        return False
+    counts = {}
+    for ch in a:
+        counts[ch] = counts.get(ch, 0) + 1
+    for ch in b:
+        if ch not in counts:
+            return False
+        counts[ch] -= 1
+    return all(v == 0 for v in counts.values())
+''',
+                "main.py": "from strings import is_anagram\n",
+            },
+            "bug": "strings.py",
+            "good": "    return all(v == 0 for v in counts.values())",
+            "buggy": "    return True",
+            "test": '''from strings import is_anagram
+assert is_anagram("listen", "silent") is True
+assert is_anagram("hello", "world") is False
+assert is_anagram("aabb", "abab") is True
+assert is_anagram("abc", "abcd") is False
+assert is_anagram("abc", "abb") is False
+print("OK")
+''',
+            "issue": "is_anagram gives wrong results for some inputs. Fix the logic.",
+        },
+        # ---- Dict: merge overwrites instead of summing ----
+        {
+            "id": "merge_dicts",
+            "files": {
+                "dicts.py": '''def merge_dicts(a, b):
+    out = dict(a)
+    for k, v in b.items():
+        out[k] = out.get(k, 0) + v
+    return out
+''',
+                "main.py": "from dicts import merge_dicts\n",
+            },
+            "bug": "dicts.py",
+            "good": "        out[k] = out.get(k, 0) + v",
+            "buggy": "        out[k] = v",
+            "test": '''from dicts import merge_dicts
+assert merge_dicts({"a": 1}, {"a": 2}) == {"a": 3}
+assert merge_dicts({"a": 1}, {"b": 2}) == {"a": 1, "b": 2}
+assert merge_dicts({}, {"x": 5}) == {"x": 5}
+assert merge_dicts({"a": 1}, {}) == {"a": 1}
+print("OK")
+''',
+            "issue": "merge_dicts overwrites instead of summing overlapping keys. Fix it.",
+        },
+        # ---- Sorting: wrong comparison direction ----
+        {
+            "id": "sort_desc",
+            "files": {
+                "sorts.py": '''def sort_descending(nums):
+    arr = list(nums)
+    for i in range(len(arr)):
+        for j in range(i + 1, len(arr)):
+            if arr[j] > arr[i]:
+                arr[i], arr[j] = arr[j], arr[i]
+    return arr
+''',
+                "main.py": "from sorts import sort_descending\n",
+            },
+            "bug": "sorts.py",
+            "good": "            if arr[j] > arr[i]:",
+            "buggy": "            if arr[j] < arr[i]:",
+            "test": '''from sorts import sort_descending
+assert sort_descending([3,1,2]) == [3,2,1]
+assert sort_descending([5,5,5]) == [5,5,5]
+assert sort_descending([1]) == [1]
+assert sort_descending([9,2,7,1]) == [9,7,2,1]
+print("OK")
+''',
+            "issue": "sort_descending returns ascending instead of descending. Fix it.",
+        },
+        # ---- Two-pointer: dedup keeps wrong elements ----
+        {
+            "id": "dedup_adjacent",
+            "files": {
+                "lists2.py": '''def remove_adjacent_dupes(nums):
+    if not nums:
+        return []
+    out = []
+    for x in nums:
+        if not out or out[-1] != x:
+            out.append(x)
+    return out
+''',
+                "main.py": "from lists2 import remove_adjacent_dupes\n",
+            },
+            "bug": "lists2.py",
+            "good": "        if not out or out[-1] != x:",
+            "buggy": "        if not out or out[-1] == x:",
+            "test": '''from lists2 import remove_adjacent_dupes
+assert remove_adjacent_dupes([1,1,2,3,3,3,4]) == [1,2,3,4]
+assert remove_adjacent_dupes([]) == []
+assert remove_adjacent_dupes([1]) == [1]
+assert remove_adjacent_dupes([1,1,1]) == [1]
+print("OK")
+''',
+            "issue": "remove_adjacent_dupes removes the wrong elements. Fix it.",
+        },
+        # ---- Math: factorial wrong recursion ----
+        {
+            "id": "factorial",
+            "files": {
+                "maths.py": '''def factorial(n):
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+''',
+                "main.py": "from maths import factorial\n",
+            },
+            "bug": "maths.py",
+            "good": "    return n * factorial(n - 1)",
+            "buggy": "    return n * factorial(n - 2)",
+            "test": '''from maths import factorial
+assert factorial(0) == 1
+assert factorial(1) == 1
+assert factorial(5) == 120
+assert factorial(7) == 5040
+print("OK")
+''',
+            "issue": "factorial returns wrong values for n >= 2. Fix it.",
+        },
     ]
 
 
