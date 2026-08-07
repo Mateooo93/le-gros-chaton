@@ -89,8 +89,9 @@ fi
 
 # ---- 4. Terminal-Bench eval of the new adapter ---------------------------
 log "4/5 TB 2.0 eval (adapter=$OUT_REPO)"
-export ADAPTER="$OUT_REPO"
-$PY eval/tbench_eval.py --adapter "$OUT_REPO" 2>/dev/null \
+$PY eval/tbench_eval.py \
+  --local-model "$MODEL_NAME" --local-ckpt "$OUT_REPO" --adapter traj_sft \
+  2>/dev/null \
   || log "eval needs a served model; run: python modal_serve_qwen.py + tbench_eval.py --server <url>"
 
 # ---- 5. RLVR with diversity ----------------------------------------------
