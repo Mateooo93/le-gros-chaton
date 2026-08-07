@@ -172,13 +172,24 @@ def format_trajectory(messages: list[dict]) -> str:
 
 
 def load_agent_traces_full(limit: int | None = None) -> list[dict]:
-    """Load full agent trajectories from agent_traces_full.jsonl (gen_trajectories)."""
-    path = os.path.join(PROJ_ROOT, "agent_traces_full.jsonl")
-    if not os.path.exists(path):
+    """Load full agent trajectories for trajectory SFT.
+
+    Prefers the format-normalized copy (agent_traces_normalized.jsonl, written
+    by colab/normalize_traces.py) so the model trains on ONE canonical tool-call
+    syntax (```tool\\nargs```) instead of the mixed bracket/backtick styles the
+    generators emit. Falls back to the raw generator output.
+    """
+    candidates = [
+        os.path.join(PROJ_ROOT, "agent_traces_normalized.jsonl"),
+        os.path.join(PROJ_ROOT, "agent_traces_full.jsonl"),
+    ]
+    path = next((p for p in candidates if os.path.exists(p)), None)
+    if path is None:
         print("[train] No agent_traces_full.jsonl — skipping")
         return []
     print(f"[train] Loading full trajectories from {path}")
     out = []
+    seen = set()
     with open(path) as f:
         for line in f:
             line = line.strip()
@@ -189,8 +200,15 @@ def load_agent_traces_full(limit: int | None = None) -> list[dict]:
             except json.JSONDecodeError:
                 continue
             # Keep verified trajectories (real training signal)
-            if tr.get("verified"):
-                out.append(tr)
+            if not tr.get("verified"):
+                continue
+            iid = tr.get("instance_id")
+            if iid is not None:
+                if iid in seen:
+                    print(f"[train] Skipping duplicate trace {iid}")
+                    continue
+                seen.add(iid)
+            out.append(tr)
     if limit:
         out = out[:limit]
     print(f"[train] Loaded {len(out)} verified trajectories")
@@ -309,12 +327,10 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
             text = format_trajectory(m)
             if not text:
                 continue
-            # Tokenize the full formatted trajectory (keep input_ids as ground truth)
-            enc = tokenizer(text, truncation=True, max_length=max_length)
-            ids = enc["input_ids"]
-            labels = [-100] * len(ids)
-            # Re-tokenize the same string but now find assistant spans: instead of
-            # offset mapping, do a cheap pass: tokenize per-message and merge.
+            # Tokenize per message and merge. Verified against the Qwen3.5
+            # tokenizer: merging per-chunk ids is byte-identical to tokenizing
+            # the full text (no merges cross the <|im_end|>\n<|im_start|>
+            # boundary), so ids/labels are exact by construction.
             merged_ids, merged_labels = [], []
             for msg in m:
                 role = msg.get("role", "user")
@@ -325,14 +341,22 @@ def train_sft(model, tokenizer, dataset, out_dir: str = "qwen_sft",
                 elif role == "user":
                     chunk = f"<|im_start|>user\n{content}<|im_end|>\n"
                     train = False
-                else:  # assistant
+                elif role == "assistant":
                     chunk = f"<|im_start|>assistant\n{content}<|im_end|>\n"
                     train = True
+                else:
+                    # Unknown roles (e.g. "tool") are context, never trained.
+                    chunk = f"<|im_start|>{role}\n{content}<|im_end|>\n"
+                    train = False
                 enc_chunk = tokenizer(chunk, add_special_tokens=False)
-                merged_ids.extend(enc_chunk["input_ids"])
-                merged_labels.extend([c if train else -100 for c in enc_chunk["input_ids"]])
-                if len(merged_ids) >= max_length:
+                chunk_ids = enc_chunk["input_ids"]
+                # Truncate at a message boundary: dropping an overflowing
+                # message beats training on a tool call cut mid-args. The first
+                # message (the prepended issue) never overflows in practice.
+                if merged_ids and len(merged_ids) + len(chunk_ids) > max_length:
                     break
+                merged_ids.extend(chunk_ids)
+                merged_labels.extend([c if train else -100 for c in chunk_ids])
             merged_ids = merged_ids[:max_length]
             merged_labels = merged_labels[:max_length]
             batch_texts.append(merged_ids)
@@ -755,7 +779,24 @@ def main():
             trajs = load_agent_traces_full(limit=args.limit)
             if not trajs:
                 raise SystemExit("[train] No trajectories found — run gen_trajectories.py first")
-            dataset = {"messages": [t["messages"] for t in trajs]}
+            # Older generator versions stored traces starting at the model's
+            # first response, with NO system prompt and NO initial "Issue: ..."
+            # user message — the model would learn to produce tool calls from
+            # an empty prompt, misaligned with the harness which always leads
+            # with the task. Current traces start with the real user prompt as
+            # trace[0], so only prepend the reconstruction for legacy traces
+            # that begin with an assistant message (never double-prefix).
+            # train_sft maps/tokenizes with datasets.Dataset.map, so the dict
+            # must become a Dataset (a bare dict crashed here before).
+            from datasets import Dataset as HFDataset
+            dataset = HFDataset.from_dict({"messages": [
+                ([{"role": "user",
+                   "content": f"Issue: {t['issue']}\n\nStart by exploring the codebase."}]
+                 if (t.get("messages") and t["messages"][0].get("role") != "user")
+                 else [])
+                + t["messages"]
+                for t in trajs
+            ]})
             sft_path, sft_rows = train_sft(
                 model, tokenizer, dataset,
                 out_dir=f"{args.output}_sft",
