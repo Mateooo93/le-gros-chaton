@@ -39,11 +39,11 @@ from gen_trajectories import _buggy_versions, make_repo, verify_repo, _patch_ove
 API_URL = os.environ.get(
     "TEACHER_API_URL",
     os.environ.get("TOKENROUTER_API_URL",
-                   "https://mateooo93--ep-kimi-k3-server.us-west.modal.direct/v1/chat/completions"))
+                   "https://secondary3--ep-kimi-k3-server.us-west.modal.direct/v1/chat/completions"))
 API_KEY = os.environ.get(
     "TEACHER_API_KEY",
     os.environ.get("TOKENROUTER_API_KEY",
-                   "wk-jSKawWKGnbucacJdSaQpnt.ws-T1Y93tiLjn76DT4FS5VqnP"))
+                   "wk-0bRRK2Jamd4Q98gyEQBIHa.ws-E0nQW84LH5JmYmC7vdxVpH"))
 MODEL = os.environ.get("TEACHER_MODEL", "moonshotai/Kimi-K3")
 
 TOOLS_DESC = """\
@@ -105,6 +105,7 @@ def teacher_complete(messages, max_tokens=1200, temperature=0.7,
             req = urllib.request.Request(
                 API_URL, data=json.dumps(body).encode(),
                 headers={"Authorization": f"Bearer {API_KEY}",
+                         "X-Webhook-Token": API_KEY,
                          "Content-Type": "application/json"},
             )
             with urllib.request.urlopen(req, timeout=120) as resp:
@@ -127,7 +128,7 @@ def teacher_complete(messages, max_tokens=1200, temperature=0.7,
             time.sleep(wait)
         except Exception as e:
             last_err = e
-            wait = min(60, 5 * (2 ** attempt))  # 5,10,20,40,60... capped at 60s
+            wait = min(20, 5 * (2 ** attempt))  # 5,10,20... capped at 20s
             print(f"    [teacher] attempt {attempt+1}/{retries} failed: {e} "
                   f"— retrying in {wait}s...", flush=True)
             time.sleep(wait)
@@ -153,17 +154,27 @@ def parse_open_tag_call(text: str):
     shape so the executor stays unchanged. Multi-arg calls (write_file) are
     joined the same way: path\\ncontent.
     """
+    def clean_arg(seg: str) -> str:
+        """Drop <|sep|>-separated attribute noise (index=, key=, type=, tool=)
+        from an argument segment, keeping the payload."""
+        for part in seg.split("<|sep|>"):
+            part = part.strip()
+            if not part:
+                continue
+            if re.fullmatch(r'(?:key|type|index|tool)="[^"]*"', part):
+                continue
+            return part
+        return ""
+
     actions = []
     for m in re.finditer(r'<\|open\|>call tool="([a-z_]+)"([\s\S]*?)<\|close\|>call', text):
         name = m.group(1)
         body = m.group(2)
         args = []
         pieces = re.split(r'<\|open\|>argument[^<]*<\|sep\|>', body)
-        first = pieces[0].split("<|close|>argument", 1)[0]
-        args.append(first.strip("\n"))
+        args.append(clean_arg(pieces[0].split("<|close|>argument", 1)[0]))
         for p in pieces[1:]:
-            seg = p.split("<|close|>argument", 1)[0]
-            args.append(seg.strip("\n"))
+            args.append(clean_arg(p.split("<|close|>argument", 1)[0]))
         args = [a for a in args if a.strip()]
         actions.append((name, "\n".join(args)))
     return actions
