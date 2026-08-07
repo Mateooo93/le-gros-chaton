@@ -67,7 +67,7 @@ fi
 # ---- 2. Trajectory SFT ---------------------------------------------------
 log "2/5 trajectory SFT (MODEL=$MODEL_NAME ADAPTER=$ADAPTER ctx=$TRAJECTORY_CTX epochs=$EPOCHS)"
 export HF_TOKEN MODEL_NAME ADAPTER TRACES_REPO TRACES_FILE OUT_REPO
-export TRAJECTORY_CTX EPOCHS BATCH LR LORA_R DEVICE_MAP MAX_MEMORY
+export TRAJECTORY_CTX EPOCHS BATCH LR LORA_R DEVICE_MAP MAX_MEMORY OUT_DIR
 $PY -u colab/trajectory_sft.py --no-upload
 log "SFT done -> $OUT_DIR"
 
