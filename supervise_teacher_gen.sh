@@ -4,11 +4,12 @@
 # generator itself is incremental + resume-capable, so restarts never
 # lose already-verified traces.
 #
-# Usage: bash supervise_teacher_gen.sh [--n 40] [--samples 2]
+# Usage: HF_TOKEN=<token> bash supervise_teacher_gen.sh [--n 40] [--samples 2]
 set -u
 cd /home/mateo/le-gros-chaton
 LOG=/tmp/teacher_gen.log
 ARGS="${*:---n 40 --samples 2 --temp 0.7}"
+: "${HF_TOKEN:?HF_TOKEN must be set (and never hardcoded in this repo)}"
 
 MAX_RESTARTS=50
 for i in $(seq 1 $MAX_RESTARTS); do
@@ -25,7 +26,7 @@ for i in $(seq 1 $MAX_RESTARTS); do
         if [ "$N" -gt 0 ]; then
             echo "=== supervisor: syncing $N traces to HF ===" >> "$LOG"
             .venv/bin/python colab/normalize_traces.py >> "$LOG" 2>&1 || true
-            HF_TOKEN="HF_TOKEN_PLACEHOLDER" .venv/bin/python - "$N" >> "$LOG" 2>&1 <<'PYEOF' || true
+            HF_TOKEN="$HF_TOKEN" .venv/bin/python - "$N" >> "$LOG" 2>&1 <<'PYEOF' || true
 import os, sys
 from huggingface_hub import HfApi
 api = HfApi(token=os.environ.get("HF_TOKEN"))

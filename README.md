@@ -38,6 +38,60 @@ other frontier models on Terminal-Bench, SWE-Bench, and coding benchmarks.
 **Baseline:** Qwen3.5-9B = 9.2% Terminal-Bench 2.0. Target: 25-35%.
 See `docs/BENCHMARK_TARGETS.md` and `docs/TRAINING_PLAN.md`.
 
+## Terminal-Bench 2.0 evaluation (the 30% proof)
+
+TB 2.0's official harness is **Harbor** (`pip install harbor` — the v1 `tb`
+CLI is not used for TB 2.0). The harness in `eval/tbench_eval.py` wraps it:
+the agent (`eval/tb_agent.py`, a Harbor `BaseAgent`) runs our SWEAgent-style
+tool loop (```tool\nargs``` / `[tool\nargs]` / `<tool>args</tool>`), with a
+new general-purpose `run_cmd` bash tool added to `agent_swe.TOOLS`. Every
+tool executes as a shell command **inside the official Docker sandbox**
+(`BaseEnvironment.exec`), and the task is resolved by Harbor running the
+task's `tests/test.sh` verifier — identical methodology to tbench.ai.
+
+```bash
+# 1. Install + verify (89 tasks in TB 2.0)
+uv pip install --python .venv/bin/python harbor modal
+python eval/tbench_eval.py --list
+
+# 2. Dry-run: verify sandbox + agent loop paths with a mock model (no GPU)
+python eval/tbench_eval.py --dry-run --tasks fix-git
+
+# 3. Serve the model (OpenAI-compatible) — any of:
+#    a) LOCAL GPU box (validated: RTX 2070 8GB, Q4_K_M GGUF, Vulkan, ~44 tok/s):
+#       ./tb-local/bin/llama-b10307/llama-server \
+#           -m tb-local/models/Qwen3.5-9B-Q4_K_M.gguf -ngl 99 \
+#           --host 127.0.0.1 --port 8001 -c 12288 --jinja
+#       (Q4_K_M gguf from unsloth/Qwen3.5-9B-GGUF, ~5.7GB. NOTE: a Q4 9B
+#       pegs an 8GB laptop GPU at ~90C — run full evals when the user is
+#       away, or on a proper GPU box. Keep -c <= 12288 and pass
+#       --server-ctx-limit 10000 so history stays inside the context.)
+#    b) Modal vLLM (SERVE_MODEL=... VLLM_API_KEY=<token> python modal_serve_qwen.py)
+#    c) any other vLLM/OpenAI server; or in-process: --local-model Qwen/Qwen3.5-9B
+
+# 4. BASELINE pilot (base model, no adapter) — zero-infra via HF Inference:
+export HF_TOKEN=<token>   # any HF token with inference access
+python eval/tbench_eval.py --run --hf-inference \
+    --label "Qwen3.5-9B-baseline" --adapter base
+#    (the harness disables Qwen3.5 thinking mode via chat_template_kwargs;
+#    the free tier is fine for pilots)
+
+# 5. FULL EVAL (89 tasks, leaderboard protocol — 100-turn cap, same agent,
+#    containerized, unmodified timeouts):
+python eval/tbench_eval.py --run --n-tasks 89 \
+    --model-server https://<modal-url> --model-name <merged-checkpoint> \
+    --model-api-key <token> --label "le-gros-chaton-traj-sft" --adapter traj_sft
+#    (RLVR final: same command, --adapter rlvr --label le-gros-chaton-rlvr)
+
+# 6. Results: appended per-task rows in benchmark_results.jsonl; summary on
+#    stdout. A modal-verified run can be submitted to the tbench.ai
+#    leaderboard (their team re-runs and verifies).
+```
+
+Cost/time: ~$0.05-0.10/task (9B on L4 ≈ $0.80/hr; 5-40 turns/task).
+Full 89-task run ≈ 5-9 hrs / **~$5-8** on one L4. Wall time per task is
+bounded by the task agent timeout (900s, unmodified).
+
 ## Start here
 
 **Read [`context/`](context/) first** — it's the single source of truth. In order:
