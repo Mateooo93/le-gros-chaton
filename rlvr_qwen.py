@@ -17,9 +17,10 @@ failure. Advantages are group-normalised; the objective is the clipped
 surrogate from GRPO (PPO-style clip).
 
 Usage:
-    MODEL_NAME=Qwen/Qwen3.5-9B DEVICE_MAP=cuda:0 \\
-    ADAPTER=mateo0093/le-gros-chaton-qwen-traj-sft \\
+    MODEL_NAME=qwen_merged ADAPTER=none DEVICE_MAP=cuda:0 \\
     python rlvr_qwen.py --n 8 --n-steps 120 --limit 19 --out qwen_rlvr
+    (run_sft_pipeline.sh merges base+Fable5+traj into qwen_merged/, then
+     runs this with the merged model as the RL base and a fresh RL LoRA)
 
 (nanoGPT rlvr.py remains for the toy MoE — this file replaces it for Qwen.)
 """
