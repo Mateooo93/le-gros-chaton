@@ -310,6 +310,221 @@ print("OK")
 ''',
             "issue": "factorial returns wrong values for n >= 2. Fix it.",
         },
+        # ---- Shell script: wrong arithmetic on CLI args ----
+        {
+            "id": "shell_args",
+            "files": {
+                "sum_args.sh": '''#!/usr/bin/env bash
+# Sums all numeric command-line arguments.
+total=0
+for arg in "$@"; do
+  total=$((total + arg))
+done
+echo "$total"
+''',
+                "README.md": "Usage: bash sum_args.sh NUM [NUM ...]\n",
+            },
+            "bug": "sum_args.sh",
+            "good": "  total=$((total + arg))",
+            "buggy": "  total=$((total - arg))",
+            "test": '''import subprocess
+r = subprocess.run(["bash", "sum_args.sh", "10", "20", "30"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr
+assert r.stdout.strip() == "60", r.stdout
+r2 = subprocess.run(["bash", "sum_args.sh", "5"], capture_output=True, text=True, timeout=10)
+assert r2.returncode == 0, r2.stderr
+assert r2.stdout.strip() == "5", r2.stdout
+print("OK")
+''',
+            "issue": "sum_args.sh prints the wrong total for its arguments. Fix the script so `bash sum_args.sh 10 20 30` prints 60 and exits 0.",
+        },
+        # ---- Makefile: broken build target ----
+        {
+            "id": "make_build",
+            "files": {
+                "Makefile": "# Builds the project.\nbuild:\n\tpython3 build.py\n\t@echo \"build complete\"\n",
+                "build.py": "print(\"build ok\")\n",
+            },
+            "bug": "Makefile",
+            "good": "python3 build.py",
+            "buggy": "python3 build_.py",
+            "test": '''import subprocess
+r = subprocess.run(["make", "build"], capture_output=True, text=True, timeout=20)
+assert r.returncode == 0, r.stdout + r.stderr
+assert "build complete" in r.stdout + r.stderr
+print("OK")
+''',
+            "issue": "The `make build` target fails. Fix the Makefile so `make build` completes successfully and prints 'build complete'.",
+        },
+        # ---- Config: invalid service port + service check ----
+        {
+            "id": "server_config",
+            "files": {
+                "config.json": '{"host": "127.0.0.1", "port": 8080, "mode": "prod"}\n',
+                "server.py": '''import json
+
+cfg = json.load(open("config.json"))
+port = cfg["port"]
+if not (1 <= port <= 65535):
+    raise SystemExit(f"invalid port: {port}")
+print(f"service listening on {cfg['host']}:{port}")
+''',
+                "README.md": "Start the service with `python3 server.py`; config lives in config.json.\n",
+            },
+            "bug": "config.json",
+            "good": '"port": 8080',
+            "buggy": '"port": 99999',
+            "test": '''import subprocess
+r = subprocess.run(["python3", "server.py"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr
+assert "127.0.0.1:8080" in r.stdout, r.stdout
+print("OK")
+''',
+            "issue": "The service fails to start with an invalid-port error. Make `python3 server.py` start successfully and report the port 127.0.0.1:8080.",
+        },
+        # ---- Package import path bug (fix by moving file or updating imports) ----
+        {
+            "id": "import_path",
+            "files": {
+                "util/helpers.py": '''def double(x):
+    return x * 2
+''',
+                "main.py": '''from util.helpers import double
+
+print(double(21))
+''',
+                "README.md": "Run the entrypoint with `python3 main.py`.\n",
+            },
+            "bug": "main.py",
+            "good": "from util.helpers import double",
+            "buggy": "from utils.helpers import double",
+            "test": '''import subprocess
+r = subprocess.run(["python3", "main.py"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr
+assert r.stdout.strip() == "42", r.stdout
+print("OK")
+''',
+            "issue": "main.py fails with a ModuleNotFoundError on import. Make `python3 main.py` print 42 — the helper exists in the repo, fix the import path or the package layout.",
+        },
+        # ---- Env-var-dependent script ----
+        {
+            "id": "env_greeting",
+            "files": {
+                "greet.py": '''import os
+
+name = os.environ.get("GREETING", "hello")
+print(name.upper())
+''',
+                "README.md": "Run with `python3 greet.py`; set GREETING to customize the output.\n",
+            },
+            "bug": "greet.py",
+            "good": 'name = os.environ.get("GREETING", "hello")',
+            "buggy": 'name = os.environ["GREETING"]',
+            "test": '''import os, subprocess
+r = subprocess.run(["python3", "greet.py"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr
+assert r.stdout.strip() == "HELLO", r.stdout
+r2 = subprocess.run(["python3", "greet.py"], capture_output=True, text=True, timeout=10, env={**os.environ, "GREETING": "world"})
+assert r2.returncode == 0, r2.stderr
+assert r2.stdout.strip() == "WORLD", r2.stdout
+print("OK")
+''',
+            "issue": "greet.py crashes with a KeyError when GREETING is not set. Make it print 'HELLO' by default and 'WORLD' when GREETING=world.",
+        },
+        # ---- CLI data processing: wrong accumulation, output file check ----
+        {
+            "id": "data_processor",
+            "files": {
+                "data.txt": "10\n20\n12\n",
+                "process.py": '''total = 0
+with open("data.txt") as f:
+    for line in f:
+        total += int(line.strip())
+with open("result.txt", "w") as f:
+    f.write(str(total))
+''',
+            },
+            "bug": "process.py",
+            "good": "        total += int(line.strip())",
+            "buggy": "        total = int(line.strip())",
+            "test": '''import subprocess
+r = subprocess.run(["python3", "process.py"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr
+with open("result.txt") as f:
+    out = f.read().strip()
+assert out == "42", out
+print("OK")
+''',
+            "issue": "process.py writes the wrong total to result.txt. It should sum all numbers in data.txt (10 + 20 + 12 = 42) and write 42 to result.txt.",
+        },
+        # ---- Sysadmin: shell script reads the wrong log file ----
+        {
+            "id": "report_grep",
+            "files": {
+                "data/access.log": "10.0.0.1 200 GET /index.html\n10.0.0.2 500 GET /api/checkout\n10.0.0.3 404 GET /missing\n",
+                "report.sh": '''#!/usr/bin/env bash
+# Counts 500 errors in the access log.
+count=$(grep -c " 500 " data/access.log)
+echo "errors: $count"
+''',
+            },
+            "bug": "report.sh",
+            "good": "data/access.log",
+            "buggy": "data/error.log",
+            "test": '''import subprocess
+r = subprocess.run(["bash", "report.sh"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr
+assert r.stdout.strip() == "errors: 1", r.stdout
+print("OK")
+''',
+            "issue": "report.sh fails to count errors in the access log because it reads the wrong file. Make `bash report.sh` print 'errors: 1' and exit 0.",
+        },
+        # ---- Sysadmin: script won't launch (broken interpreter line) ----
+        {
+            "id": "deploy_perms",
+            "files": {
+                "run.sh": '''#!/usr/bin/env bash
+# Deployment entrypoint.
+echo "deploy ok"
+''',
+                "README.md": "Deploy by running `./run.sh` from the repo root.\n",
+            },
+            "bug": "run.sh",
+            "good": "#!/usr/bin/env bash",
+            "buggy": "#!/usr/bin/env bashh",
+            "test": '''import os, stat, subprocess
+os.chmod("run.sh", 0o755)
+r = subprocess.run(["./run.sh"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr + r.stdout
+assert "deploy ok" in r.stdout, r.stdout
+print("OK")
+''',
+            "issue": "run.sh fails to launch with an interpreter error. Fix the script so `./run.sh` prints 'deploy ok' and exits 0.",
+        },
+        # ---- Backup script: wrong destination path ----
+        {
+            "id": "backup_script",
+            "files": {
+                "data/notes.txt": "keep me safe\n",
+                "backup.sh": '''#!/usr/bin/env bash
+# Copies data into the backup directory.
+mkdir -p backup
+cp data/notes.txt backup/notes.txt
+echo "backup complete: $(cat backup/notes.txt)"
+''',
+            },
+            "bug": "backup.sh",
+            "good": "cp data/notes.txt backup/notes.txt",
+            "buggy": "cp data/notes.txt backup/notes.txtx",
+            "test": '''import os, subprocess
+r = subprocess.run(["bash", "backup.sh"], capture_output=True, text=True, timeout=10)
+assert r.returncode == 0, r.stderr
+assert "keep me safe" in r.stdout, r.stdout
+assert os.path.exists("backup/notes.txt"), "backup file missing"
+print("OK")
+''',
+            "issue": "backup.sh claims the backup is complete but the file is never created in backup/. Make `bash backup.sh` copy data/notes.txt into backup/ and print its contents.",
+        },
     ]
 
 
