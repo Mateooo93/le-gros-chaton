@@ -74,6 +74,10 @@ Rules:
 - Do not repeat a tool call that already returned the same result.
 - When you believe the bug is fixed, call ```run_test with the test command.
 - Only call ```finish after you are confident the fix works.
+
+After ```finish, write a brief SELF-REVIEW (under 100 words) starting with
+"SELF-REVIEW:" covering: what you did, what you learned, what you would do
+differently next time, and how confident you are the fix is correct.
 """
 
 
@@ -183,7 +187,7 @@ def execute_tool(action, args_text, repo_dir):
         return f"Error: {e}"
 
 
-def teacher_run(issue, repo_dir, max_turns=15, temperature=0.7):
+def teacher_run(issue, repo_dir, max_turns=15, temperature=0.7, retries=30):
     """Run Kimi K3 through one agent loop. Returns the full trace."""
     messages = [
         {"role": "system", "content": SYSTEM_TEACHER},
@@ -193,7 +197,7 @@ def teacher_run(issue, repo_dir, max_turns=15, temperature=0.7):
     trace = []
     for turn in range(max_turns):
         content, reasoning, usage = teacher_complete(
-            messages, max_tokens=1200, temperature=temperature)
+            messages, max_tokens=1200, temperature=temperature, retries=retries)
         if reasoning:
             trace.append({"role": "assistant", "content": f"[thinking]\n{reasoning[:500]}"})
         if content:
@@ -235,11 +239,36 @@ def main():
     parser.add_argument("--out", default="agent_traces_full.jsonl")
     parser.add_argument("--max-turns", type=int, default=15)
     parser.add_argument("--keep-failed", action="store_true")
+    parser.add_argument("--retries", type=int, default=30,
+                        help="API retries per call (free tier is flaky)")
     args = parser.parse_args()
 
     templates = _buggy_versions()
-    results = []
-    n_success = 0
+    out_path = os.path.join(PROJ_ROOT, args.out)
+
+    # --- Resume support: load already-kept traces so a restart skips done work ---
+    done_ids = set()
+    existing = []
+    if os.path.exists(out_path):
+        with open(out_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except Exception:
+                    continue
+                existing.append(e)
+                done_ids.add(e["instance_id"])
+    print(f"[teacher] resume: {len(existing)} traces already in {args.out}")
+
+    def append_entry(entry):
+        with open(out_path, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+
+    results = list(existing)
+    n_success = sum(1 for r in results if r.get("verified"))
     work = tempfile.mkdtemp(prefix="teacher_repos_")
 
     for i in range(args.n):
@@ -255,9 +284,21 @@ def main():
 
         kept_for_task = []
         for s in range(args.samples):
-            t0 = time.time()
-            trace, finish_msg = teacher_run(issue, repo_dir, args.max_turns, args.temp)
-            dt = time.time() - t0
+            inst_id = f"{tpl['id']}_{i}_{s}"
+            if inst_id in done_ids:
+                print(f"[teacher] {i+1}/{args.n} s{s+1} | {tpl['id']} | already done — skip")
+                continue
+
+            try:
+                t0 = time.time()
+                trace, finish_msg = teacher_run(issue, repo_dir, args.max_turns,
+                                                args.temp, args.retries)
+                dt = time.time() - t0
+            except Exception as e:
+                print(f"[teacher] {i+1}/{args.n} s{s+1} | {tpl['id']} | "
+                      f"RUN FAILED ({e}) — skipping, continuing", flush=True)
+                continue
+
             verified, n_pass, n_total = verify_repo(repo_dir, tpl["test"])
             patch = ""
             try:
@@ -266,6 +307,15 @@ def main():
                 patch = r.stdout
             except Exception:
                 pass
+
+            # Extract the teacher's self-review from the finish message
+            self_review = ""
+            if isinstance(finish_msg, str):
+                sr = re.search(r"SELF-REVIEW:\s*(.*)", finish_msg, re.DOTALL)
+                if sr:
+                    self_review = sr.group(1).strip()[:500]
+                elif finish_msg and finish_msg != "(reached max turns)":
+                    self_review = finish_msg[:300]
 
             if verified and kept_for_task:
                 overlap = max(_patch_overlap(patch, kp["patch"])
@@ -276,7 +326,7 @@ def main():
                     continue
 
             entry = {
-                "instance_id": f"{tpl['id']}_{i}_{s}",
+                "instance_id": inst_id,
                 "issue": issue,
                 "messages": trace,
                 "turns": len([m for m in trace if m["role"] == "assistant"]),
@@ -287,26 +337,30 @@ def main():
                                    if m["role"] == "assistant"
                                    and ("```" in m["content"] or "[" in m["content"])]),
                 "seconds": round(dt, 1),
-                "self_review": "",
+                "self_review": self_review,
                 "teacher": MODEL,
             }
             results.append(entry)
+            append_entry(entry)  # incremental: survive crashes
+            done_ids.add(inst_id)
             if verified:
                 n_success += 1
                 kept_for_task.append(entry)
             print(f"[teacher] {i+1}/{args.n} s{s+1} | {tpl['id']} | "
                   f"verified={verified} ({n_pass}/{n_total}) | "
-                  f"turns={entry['turns']} | {dt:.0f}s")
+                  f"turns={entry['turns']} | {dt:.0f}s | "
+                  f"self_review={'yes' if self_review else 'no'}", flush=True)
         shutil.rmtree(repo_dir, ignore_errors=True)
 
     kept = results if args.keep_failed else [r for r in results if r["verified"]]
-    out_path = os.path.join(PROJ_ROOT, args.out)
+    # Re-write canonical (only verified unless --keep-failed)
     with open(out_path, "w") as f:
         for r in kept:
             f.write(json.dumps(r) + "\n")
     print(f"\n[teacher] Done: {len(results)} runs, {n_success} verified, "
           f"{len(kept)} kept -> {out_path}")
     print(f"[teacher] Verified rate: {n_success/max(1,len(results))*100:.0f}%")
+    print(f"[teacher] With self-review: {sum(1 for r in kept if r.get('self_review'))}")
     shutil.rmtree(work, ignore_errors=True)
 
 
