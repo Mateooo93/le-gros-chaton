@@ -78,8 +78,9 @@ Rules:
 
 
 def teacher_complete(messages, max_tokens=1200, temperature=0.7,
-                     retries=3):
-    """Call Kimi K3 via TokenRouter (OpenAI-compatible). Retries on timeout."""
+                     retries=10):
+    """Call Kimi K3 via TokenRouter (OpenAI-compatible). Retries on timeout/SSL
+    with exponential backoff — the free tier is flaky and recovers."""
     body = {
         "model": MODEL,
         "messages": messages,
@@ -104,8 +105,10 @@ def teacher_complete(messages, max_tokens=1200, temperature=0.7,
             return content, reasoning, usage
         except Exception as e:
             last_err = e
-            print(f"    [teacher] attempt {attempt+1} failed: {e} — retrying...")
-            time.sleep(5 * (attempt + 1))
+            wait = min(60, 5 * (2 ** attempt))  # 5,10,20,40,60... capped at 60s
+            print(f"    [teacher] attempt {attempt+1}/{retries} failed: {e} "
+                  f"— retrying in {wait}s...", flush=True)
+            time.sleep(wait)
     raise RuntimeError(f"teacher_complete failed after {retries} attempts: {last_err}")
 
 
