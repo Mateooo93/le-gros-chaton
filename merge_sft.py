@@ -67,20 +67,20 @@ def main() -> None:
     )
     log(f"Base loaded | VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
 
-    # Load BOTH adapters into ONE PeftModel as a stack (deltas compose on the
-    # same base activations — mathematically identical to how trajectory_sft
-    # trained: base -> Fable5 layer -> trajectory LoRA on top).
-    log(f"Attaching Fable5 adapter '{FABLE_MODEL}' ...")
-    model = PeftModel.from_pretrained(model, FABLE_MODEL, adapter_name="fable",
-                                      is_trainable=False)
-    log(f"Attaching trajectory adapter '{TRAJ_ADAPTER}' ...")
-    model.load_adapter(TRAJ_ADAPTER, adapter_name="traj")
-    model.set_adapter(["fable", "traj"])
+    # NOTE: PEFT 0.20's merge_and_unload(adapter_names=[a, b]) silently merges
+    # only the FIRST adapter (verified empirically on a tiny model:
+    # merge[fable] == merge[fable, traj] exactly). The only correct way to
+    # fuse a LoRA-on-LoRA stack is SEQUENTIAL merge, which matches the
+    # training-time forward exactly (error ~1e-7):
+    #   step 1: base + Fable5  -> merged1
+    #   step 2: merged1 + traj -> final (base + Fable5 + traj deltas)
+    log(f"Fusing Fable5 adapter '{FABLE_MODEL}' into base ...")
+    step1 = PeftModel.from_pretrained(model, FABLE_MODEL)
+    merged1 = step1.merge_and_unload()
 
-    # Merge ALL active adapters into the base weights (PEFT merges the
-    # composed deltas additively into W0 — same math as the trained stack).
-    log("Merging adapters into base weights ...")
-    merged = model.merge_and_unload(adapter_names=["fable", "traj"])
+    log(f"Fusing trajectory adapter '{TRAJ_ADAPTER}' on top ...")
+    step2 = PeftModel.from_pretrained(merged1, TRAJ_ADAPTER)
+    merged = step2.merge_and_unload()
     log(f"  merged | VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
 
     os.makedirs(OUT_DIR, exist_ok=True)
