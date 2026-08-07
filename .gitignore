@@ -4,6 +4,9 @@ __pycache__/
 *.pyc
 .DS_Store
 
+# --- Hackatime heartbeat state ---
+.hackatime-last-check
+
 # --- Generated model weights + token memmaps (rebuild on the VM) ---
 *.pt
 *.bin

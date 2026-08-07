@@ -1,0 +1,594 @@
+[{"stream_name":"stdout","time":0.905159624,"data":"=== Installing deps ===\n"}
+,{"stream_name":"stdout","time":5.480523082,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.6/11.6 MB 97.0 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":5.538795346,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 3.3/3.3 MB 77.3 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":5.568843955,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 516.0/516.0 kB 35.7 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":5.900783162,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40.9/40.9 MB 51.9 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":5.9371927719999995,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 889.0/889.0 kB 45.7 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":19.935857922,"data":"deps installed (preinstalled torch + transformers 5.14.1 + tokenizers 0.22.1)\n"}
+,{"stream_name":"stdout","time":19.935901372,"data":"=== Cloning repo ===\n"}
+,{"stream_name":"stderr","time":19.957041295,"data":"Cloning into 'le-gros-chaton'...\n"}
+,{"stream_name":"stdout","time":20.726462164,"data":"repo cloned\n"}
+,{"stream_name":"stdout","time":20.726566013,"data":"HF_TOKEN set: True\n"}
+,{"stream_name":"stdout","time":20.726615939,"data":"=== Training (phase=sft, limit=16000) ===\n"}
+,{"stream_name":"stdout","time":21.771996395,"data":"CMD: /usr/bin/python3 -u train_qwen.py --sft-only --limit 16000 --batch-size 2 --adapter mateo0093/le-gros-chaton-qwen\n"}
+,{"stream_name":"stdout","time":26.057218536,"data":"[train] === Le Gros Chaton - Coding Agent Training ===\n"}
+,{"stream_name":"stdout","time":26.057243001,"data":"[train] Model: Qwen/Qwen3.5-9B\n"}
+,{"stream_name":"stdout","time":26.057247739,"data":"[train] Dataset: Nexlab/fable5-agentic-coding-sft\n"}
+,{"stream_name":"stdout","time":26.057251653,"data":"[train] Output: qwen_coding_agent\n"}
+,{"stream_name":"stdout","time":46.307011381,"data":"[train] Loading Qwen/Qwen3.5-9B...\n"}
+,{"stream_name":"stdout","time":49.303642314,"data":"[train] model_type=qwen3_5 text_model_type=qwen3_5_text layers=32\n"}
+,{"stream_name":"stdout","time":53.464649125,"data":"\n"}
+,{"stream_name":"stdout","time":925.746464142,"data":"Fetching 4 files:   0%|          | 0/4 [00:00\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":933.414202837,"data":"Fetching 4 files:  25%|██▌       | 1/4 [14:32\u003c43:36, 872.28s/it]\n"}
+,{"stream_name":"stdout","time":1874.420492449,"data":"Fetching 4 files:  50%|█████     | 2/4 [14:39\u003c12:07, 363.69s/it]\n"}
+,{"stream_name":"stdout","time":1874.420561936,"data":"Fetching 4 files:  75%|███████▌  | 3/4 [30:20\u003c10:27, 627.30s/it]\n"}
+,{"stream_name":"stdout","time":1874.420571049,"data":"Fetching 4 files: 100%|██████████| 4/4 [30:20\u003c00:00, 455.24s/it]\n"}
+,{"stream_name":"stdout","time":1874.493612491,"data":"[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d\n"}
+,{"stream_name":"stdout","time":1875.263027055,"data":"\n"}
+,{"stream_name":"stdout","time":1883.285797073,"data":"Loading weights:   0%|          | 0/427 [00:00\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":1884.184077504,"data":"Loading weights:   0%|          | 1/427 [00:08\u003c56:57,  8.02s/it]\n"}
+,{"stream_name":"stdout","time":1884.370518314,"data":"Loading weights:   0%|          | 2/427 [00:08\u003c27:08,  3.83s/it]\n"}
+,{"stream_name":"stdout","time":1884.560611973,"data":"Loading weights:   2%|▏         | 7/427 [00:09\u003c05:22,  1.30it/s]\n"}
+,{"stream_name":"stdout","time":1884.691427959,"data":"Loading weights:   2%|▏         | 9/427 [00:09\u003c03:51,  1.80it/s]\n"}
+,{"stream_name":"stdout","time":1885.223367661,"data":"Loading weights:   3%|▎         | 11/427 [00:09\u003c02:47,  2.48it/s]\n"}
+,{"stream_name":"stdout","time":1885.626525405,"data":"Loading weights:   3%|▎         | 13/427 [00:09\u003c02:29,  2.77it/s]\n"}
+,{"stream_name":"stdout","time":1886.02877709,"data":"Loading weights:   3%|▎         | 14/427 [00:10\u003c02:32,  2.72it/s]\n"}
+,{"stream_name":"stdout","time":1886.293075317,"data":"Loading weights:   4%|▎         | 15/427 [00:10\u003c02:34,  2.67it/s]\n"}
+,{"stream_name":"stdout","time":1886.422618707,"data":"Loading weights:   5%|▌         | 23/427 [00:11\u003c00:54,  7.38it/s]\n"}
+,{"stream_name":"stdout","time":1886.961186899,"data":"Loading weights:   6%|▌         | 25/427 [00:11\u003c00:48,  8.24it/s]\n"}
+,{"stream_name":"stdout","time":1887.782221274,"data":"Loading weights:   6%|▋         | 27/427 [00:11\u003c01:01,  6.48it/s]\n"}
+,{"stream_name":"stdout","time":1887.919195504,"data":"Loading weights:   7%|▋         | 29/427 [00:12\u003c01:25,  4.63it/s]\n"}
+,{"stream_name":"stdout","time":1888.085137807,"data":"Loading weights:   9%|▉         | 38/427 [00:12\u003c00:36, 10.64it/s]\n"}
+,{"stream_name":"stdout","time":1888.214769098,"data":"Loading weights:  10%|▉         | 41/427 [00:12\u003c00:32, 11.72it/s]\n"}
+,{"stream_name":"stdout","time":1888.331985812,"data":"Loading weights:  11%|█         | 46/427 [00:12\u003c00:24, 15.48it/s]\n"}
+,{"stream_name":"stdout","time":1888.441380016,"data":"Loading weights:  12%|█▏        | 51/427 [00:13\u003c00:19, 19.63it/s]\n"}
+,{"stream_name":"stdout","time":1888.571080477,"data":"Loading weights:  13%|█▎        | 55/427 [00:13\u003c00:16, 22.50it/s]\n"}
+,{"stream_name":"stdout","time":1888.801881082,"data":"Loading weights:  15%|█▍        | 63/427 [00:13\u003c00:11, 31.23it/s]\n"}
+,{"stream_name":"stdout","time":1888.901902022,"data":"Loading weights:  16%|█▌        | 68/427 [00:13\u003c00:12, 27.77it/s]\n"}
+,{"stream_name":"stdout","time":1889.108717559,"data":"Loading weights:  18%|█▊        | 77/427 [00:13\u003c00:08, 39.15it/s]\n"}
+,{"stream_name":"stdout","time":1889.317351529,"data":"Loading weights:  19%|█▉        | 83/427 [00:13\u003c00:09, 35.59it/s]\n"}
+,{"stream_name":"stdout","time":1889.441221106,"data":"Loading weights:  22%|██▏       | 93/427 [00:14\u003c00:08, 39.74it/s]\n"}
+,{"stream_name":"stdout","time":1889.593667471,"data":"Loading weights:  23%|██▎       | 99/427 [00:14\u003c00:07, 41.67it/s]\n"}
+,{"stream_name":"stdout","time":1889.758603954,"data":"Loading weights:  25%|██▍       | 105/427 [00:14\u003c00:07, 41.02it/s]\n"}
+,{"stream_name":"stdout","time":1889.98781234,"data":"Loading weights:  27%|██▋       | 116/427 [00:14\u003c00:06, 48.78it/s]\n"}
+,{"stream_name":"stdout","time":1890.196612327,"data":"Loading weights:  29%|██▊       | 122/427 [00:14\u003c00:07, 40.30it/s]\n"}
+,{"stream_name":"stdout","time":1890.476309703,"data":"Loading weights:  31%|███       | 132/427 [00:14\u003c00:06, 42.79it/s]\n"}
+,{"stream_name":"stdout","time":1891.547256014,"data":"Loading weights:  33%|███▎      | 143/427 [00:15\u003c00:06, 41.46it/s]\n"}
+,{"stream_name":"stdout","time":1892.345732606,"data":"Loading weights:  35%|███▍      | 148/427 [00:16\u003c00:16, 16.50it/s]\n"}
+,{"stream_name":"stdout","time":1893.145798302,"data":"Loading weights:  36%|███▌      | 152/427 [00:17\u003c00:23, 11.68it/s]\n"}
+,{"stream_name":"stdout","time":1893.308663284,"data":"Loading weights:  36%|███▋      | 155/427 [00:17\u003c00:31,  8.70it/s]\n"}
+,{"stream_name":"stdout","time":1893.57545986,"data":"Loading weights:  37%|███▋      | 158/427 [00:18\u003c00:27,  9.66it/s]\n"}
+,{"stream_name":"stdout","time":1893.875976716,"data":"Loading weights:  37%|███▋      | 160/427 [00:18\u003c00:28,  9.26it/s]\n"}
+,{"stream_name":"stdout","time":1894.008575321,"data":"Loading weights:  39%|███▉      | 168/427 [00:18\u003c00:19, 13.27it/s]\n"}
+,{"stream_name":"stdout","time":1894.537242508,"data":"Loading weights:  40%|███▉      | 170/427 [00:18\u003c00:19, 13.50it/s]\n"}
+,{"stream_name":"stdout","time":1895.319537972,"data":"Loading weights:  40%|████      | 172/427 [00:19\u003c00:27,  9.42it/s]\n"}
+,{"stream_name":"stdout","time":1895.575428859,"data":"Loading weights:  41%|████      | 174/427 [00:20\u003c00:40,  6.19it/s]\n"}
+,{"stream_name":"stdout","time":1895.703906769,"data":"Loading weights:  43%|████▎     | 182/427 [00:20\u003c00:22, 10.71it/s]\n"}
+,{"stream_name":"stdout","time":1895.98371739,"data":"Loading weights:  43%|████▎     | 184/427 [00:20\u003c00:21, 11.27it/s]\n"}
+,{"stream_name":"stdout","time":1896.139498071,"data":"Loading weights:  44%|████▎     | 186/427 [00:20\u003c00:23, 10.18it/s]\n"}
+,{"stream_name":"stdout","time":1896.415611716,"data":"Loading weights:  46%|████▌     | 197/427 [00:20\u003c00:11, 20.62it/s]\n"}
+,{"stream_name":"stdout","time":1896.577817176,"data":"Loading weights:  47%|████▋     | 201/427 [00:21\u003c00:12, 18.76it/s]\n"}
+,{"stream_name":"stdout","time":1896.718208918,"data":"Loading weights:  48%|████▊     | 205/427 [00:21\u003c00:11, 19.96it/s]\n"}
+,{"stream_name":"stdout","time":1896.857228697,"data":"Loading weights:  49%|████▊     | 208/427 [00:21\u003c00:10, 20.24it/s]\n"}
+,{"stream_name":"stdout","time":1896.999416634,"data":"Loading weights:  50%|████▉     | 213/427 [00:21\u003c00:09, 23.72it/s]\n"}
+,{"stream_name":"stdout","time":1897.917342111,"data":"Loading weights:  52%|█████▏    | 222/427 [00:21\u003c00:06, 33.39it/s]\n"}
+,{"stream_name":"stdout","time":1898.318254588,"data":"Loading weights:  53%|█████▎    | 226/427 [00:22\u003c00:15, 13.28it/s]\n"}
+,{"stream_name":"stdout","time":1898.448818413,"data":"Loading weights:  54%|█████▎    | 229/427 [00:23\u003c00:17, 11.53it/s]\n"}
+,{"stream_name":"stdout","time":1899.384361943,"data":"Loading weights:  55%|█████▌    | 236/427 [00:23\u003c00:11, 16.71it/s]\n"}
+,{"stream_name":"stdout","time":1899.785614197,"data":"Loading weights:  56%|█████▌    | 240/427 [00:24\u003c00:19,  9.78it/s]\n"}
+,{"stream_name":"stdout","time":1899.916928155,"data":"Loading weights:  57%|█████▋    | 243/427 [00:24\u003c00:20,  9.19it/s]\n"}
+,{"stream_name":"stdout","time":1900.450036639,"data":"Loading weights:  59%|█████▊    | 250/427 [00:24\u003c00:12, 13.88it/s]\n"}
+,{"stream_name":"stdout","time":1901.251943488,"data":"Loading weights:  59%|█████▉    | 253/427 [00:25\u003c00:16, 10.73it/s]\n"}
+,{"stream_name":"stdout","time":1901.65217631,"data":"Loading weights:  60%|█████▉    | 256/427 [00:25\u003c00:22,  7.58it/s]\n"}
+,{"stream_name":"stdout","time":1901.796117439,"data":"Loading weights:  60%|██████    | 258/427 [00:26\u003c00:24,  6.95it/s]\n"}
+,{"stream_name":"stdout","time":1901.923009212,"data":"Loading weights:  61%|██████    | 260/427 [00:26\u003c00:21,  7.73it/s]\n"}
+,{"stream_name":"stdout","time":1902.060061382,"data":"Loading weights:  62%|██████▏   | 266/427 [00:26\u003c00:12, 12.58it/s]\n"}
+,{"stream_name":"stdout","time":1902.347702204,"data":"Loading weights:  64%|██████▍   | 275/427 [00:26\u003c00:07, 21.03it/s]\n"}
+,{"stream_name":"stdout","time":1902.624491393,"data":"Loading weights:  65%|██████▌   | 279/427 [00:27\u003c00:07, 18.73it/s]\n"}
+,{"stream_name":"stdout","time":1903.292590362,"data":"Loading weights:  67%|██████▋   | 288/427 [00:27\u003c00:06, 22.97it/s]\n"}
+,{"stream_name":"stdout","time":1904.097398161,"data":"Loading weights:  68%|██████▊   | 292/427 [00:28\u003c00:09, 14.23it/s]\n"}
+,{"stream_name":"stdout","time":1904.227474623,"data":"Loading weights:  69%|██████▉   | 295/427 [00:28\u003c00:14,  9.30it/s]\n"}
+,{"stream_name":"stdout","time":1905.198345156,"data":"Loading weights:  71%|███████   | 303/427 [00:28\u003c00:08, 14.40it/s]\n"}
+,{"stream_name":"stdout","time":1905.70352916,"data":"Loading weights:  72%|███████▏  | 307/427 [00:29\u003c00:13,  9.15it/s]\n"}
+,{"stream_name":"stdout","time":1906.419119507,"data":"Loading weights:  73%|███████▎  | 310/427 [00:30\u003c00:14,  8.27it/s]\n"}
+,{"stream_name":"stdout","time":1906.819235157,"data":"Loading weights:  73%|███████▎  | 312/427 [00:31\u003c00:18,  6.31it/s]\n"}
+,{"stream_name":"stdout","time":1906.981573276,"data":"Loading weights:  74%|███████▎  | 314/427 [00:31\u003c00:18,  6.02it/s]\n"}
+,{"stream_name":"stdout","time":1907.088865413,"data":"Loading weights:  74%|███████▍  | 317/427 [00:31\u003c00:14,  7.44it/s]\n"}
+,{"stream_name":"stdout","time":1907.352103566,"data":"Loading weights:  77%|███████▋  | 327/427 [00:31\u003c00:06, 15.78it/s]\n"}
+,{"stream_name":"stdout","time":1907.468120757,"data":"Loading weights:  78%|███████▊  | 331/427 [00:32\u003c00:06, 15.63it/s]\n"}
+,{"stream_name":"stdout","time":1907.588671156,"data":"Loading weights:  78%|███████▊  | 335/427 [00:32\u003c00:05, 18.23it/s]\n"}
+,{"stream_name":"stdout","time":1907.847013691,"data":"Loading weights:  80%|████████  | 342/427 [00:32\u003c00:03, 25.01it/s]\n"}
+,{"stream_name":"stdout","time":1907.991274768,"data":"Loading weights:  81%|████████  | 346/427 [00:32\u003c00:03, 21.74it/s]\n"}
+,{"stream_name":"stdout","time":1908.337182481,"data":"Loading weights:  83%|████████▎ | 355/427 [00:32\u003c00:02, 30.46it/s]\n"}
+,{"stream_name":"stdout","time":1908.505788443,"data":"Loading weights:  84%|████████▍ | 360/427 [00:33\u003c00:02, 23.68it/s]\n"}
+,{"stream_name":"stdout","time":1909.27113308,"data":"Loading weights:  85%|████████▌ | 364/427 [00:33\u003c00:02, 23.69it/s]\n"}
+,{"stream_name":"stdout","time":1909.433917501,"data":"Loading weights:  86%|████████▌ | 368/427 [00:34\u003c00:04, 12.68it/s]\n"}
+,{"stream_name":"stdout","time":1909.736590056,"data":"Loading weights:  87%|████████▋ | 371/427 [00:34\u003c00:04, 13.56it/s]\n"}
+,{"stream_name":"stdout","time":1910.000366019,"data":"Loading weights:  89%|████████▉ | 380/427 [00:34\u003c00:02, 18.25it/s]\n"}
+,{"stream_name":"stdout","time":1910.226609582,"data":"Loading weights:  90%|████████▉ | 383/427 [00:34\u003c00:02, 16.42it/s]\n"}
+,{"stream_name":"stdout","time":1910.415690408,"data":"Loading weights:  90%|█████████ | 386/427 [00:34\u003c00:02, 15.65it/s]\n"}
+,{"stream_name":"stdout","time":1910.678337737,"data":"Loading weights:  92%|█████████▏| 394/427 [00:35\u003c00:01, 21.68it/s]\n"}
+,{"stream_name":"stdout","time":1910.934254654,"data":"Loading weights:  93%|█████████▎| 397/427 [00:35\u003c00:01, 18.50it/s]\n"}
+,{"stream_name":"stdout","time":1911.065997593,"data":"Loading weights:  94%|█████████▎| 400/427 [00:35\u003c00:01, 16.48it/s]\n"}
+,{"stream_name":"stdout","time":1911.988874194,"data":"Loading weights:  96%|█████████▌| 409/427 [00:35\u003c00:00, 25.85it/s]\n"}
+,{"stream_name":"stdout","time":1912.391294838,"data":"Loading weights:  97%|█████████▋| 413/427 [00:36\u003c00:01, 11.98it/s]\n"}
+,{"stream_name":"stdout","time":1913.192281473,"data":"Loading weights:  97%|█████████▋| 416/427 [00:37\u003c00:01, 10.68it/s]\n"}
+,{"stream_name":"stdout","time":1913.594675184,"data":"Loading weights:  98%|█████████▊| 418/427 [00:37\u003c00:01,  7.01it/s]\n"}
+,{"stream_name":"stdout","time":1913.75685246,"data":"Loading weights:  98%|█████████▊| 420/427 [00:38\u003c00:01,  6.51it/s]\n"}
+,{"stream_name":"stdout","time":1913.82037416,"data":"Loading weights:  99%|█████████▉| 423/427 [00:38\u003c00:00,  7.99it/s]\n"}
+,{"stream_name":"stdout","time":1913.820407364,"data":"Loading weights: 100%|██████████| 427/427 [00:38\u003c00:00, 11.07it/s]\n"}
+,{"stream_name":"stdout","time":1915.509703155,"data":"trainable params: 43,278,336 || all params: 8,997,081,600 || trainable%: 0.4810\n"}
+,{"stream_name":"stdout","time":1915.58824239,"data":"\n"}
+,{"stream_name":"stdout","time":1915.753073867,"data":"Fetching 9 files:   0%|          | 0/9 [00:00\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":1919.1885459,"data":"Fetching 9 files:  11%|█         | 1/9 [00:00\u003c00:01,  6.07it/s]\n"}
+,{"stream_name":"stdout","time":1919.19772805,"data":"Fetching 9 files:  44%|████▍     | 4/9 [00:03\u003c00:04,  1.04it/s]\n"}
+,{"stream_name":"stdout","time":1919.197749378,"data":"Fetching 9 files: 100%|██████████| 9/9 [00:03\u003c00:00,  2.49it/s]\n"}
+,{"stream_name":"stdout","time":1919.19859931,"data":"[train] Loading SFT adapter from /root/.cache/huggingface/hub/models--mateo0093--le-gros-chaton-qwen/snapshots/efd519a52c6e6ee6a456571eee615599f0c310d0\n"}
+,{"stream_name":"stdout","time":1920.262926753,"data":"trainable params: 43,278,336 || all params: 8,997,081,600 || trainable%: 0.4810\n"}
+,{"stream_name":"stdout","time":1920.262992116,"data":"[train] Loaded in 1874.0s\n"}
+,{"stream_name":"stdout","time":1920.263093835,"data":"[train] GPU 0: 0.0GB / 15.6GB used\n"}
+,{"stream_name":"stdout","time":1920.2633299,"data":"[train] GPU 1: 7.8GB / 15.6GB used\n"}
+,{"stream_name":"stdout","time":1920.263341392,"data":"\n"}
+,{"stream_name":"stdout","time":1920.263347158,"data":"==================================================\n"}
+,{"stream_name":"stdout","time":1920.263352424,"data":"[train] PHASE 1: SFT on Nexlab/fable5-agentic-coding-sft\n"}
+,{"stream_name":"stdout","time":1920.263357026,"data":"==================================================\n"}
+,{"stream_name":"stdout","time":1922.41916196,"data":"[train] Loading Fable5 dataset (160k rows)...\n"}
+,{"stream_name":"stdout","time":1927.218790567,"data":"\n"}
+,{"stream_name":"stdout","time":1927.469425898,"data":"Generating train split:   0%|          | 0/159972 [00:00\u003c?, ? examples/s]\n"}
+,{"stream_name":"stdout","time":1927.6382082,"data":"Generating train split:   0%|          | 43/159972 [00:00\u003c15:31, 171.75 examples/s]\n"}
+,{"stream_name":"stdout","time":1927.814466956,"data":"Generating train split:   0%|          | 230/159972 [00:00\u003c04:13, 631.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1927.976490912,"data":"Generating train split:   2%|▏         | 3188/159972 [00:00\u003c00:21, 7455.88 examples/s]\n"}
+,{"stream_name":"stdout","time":1928.143841924,"data":"Generating train split:   4%|▍         | 6263/159972 [00:00\u003c00:13, 11570.64 examples/s]\n"}
+,{"stream_name":"stdout","time":1928.311734783,"data":"Generating train split:   6%|▌         | 9368/159972 [00:00\u003c00:10, 13979.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1928.483147355,"data":"Generating train split:   8%|▊         | 12308/159972 [00:01\u003c00:09, 15146.33 examples/s]\n"}
+,{"stream_name":"stdout","time":1928.643586182,"data":"Generating train split:  10%|▉         | 15267/159972 [00:01\u003c00:09, 15836.91 examples/s]\n"}
+,{"stream_name":"stdout","time":1928.803434402,"data":"Generating train split:  11%|█▏        | 18273/159972 [00:01\u003c00:08, 16715.97 examples/s]\n"}
+,{"stream_name":"stdout","time":1928.964566364,"data":"Generating train split:  13%|█▎        | 21176/159972 [00:01\u003c00:08, 17151.47 examples/s]\n"}
+,{"stream_name":"stdout","time":1929.124844599,"data":"Generating train split:  15%|█▌        | 24232/159972 [00:01\u003c00:07, 17700.71 examples/s]\n"}
+,{"stream_name":"stdout","time":1929.28216029,"data":"Generating train split:  17%|█▋        | 27108/159972 [00:01\u003c00:07, 17774.53 examples/s]\n"}
+,{"stream_name":"stdout","time":1929.443141057,"data":"Generating train split:  19%|█▊        | 29644/159972 [00:02\u003c00:07, 17282.76 examples/s]\n"}
+,{"stream_name":"stdout","time":1929.612050066,"data":"Generating train split:  20%|██        | 32669/159972 [00:02\u003c00:07, 17738.48 examples/s]\n"}
+,{"stream_name":"stdout","time":1930.022993515,"data":"Generating train split:  22%|██▏       | 35629/159972 [00:02\u003c00:07, 17672.66 examples/s]\n"}
+,{"stream_name":"stdout","time":1930.18739934,"data":"Generating train split:  24%|██▍       | 38289/159972 [00:02\u003c00:10, 11847.28 examples/s]\n"}
+,{"stream_name":"stdout","time":1930.350801885,"data":"Generating train split:  26%|██▌       | 41237/159972 [00:02\u003c00:08, 13239.53 examples/s]\n"}
+,{"stream_name":"stdout","time":1930.510540677,"data":"Generating train split:  28%|██▊       | 44192/159972 [00:03\u003c00:08, 14428.78 examples/s]\n"}
+,{"stream_name":"stdout","time":1930.680342867,"data":"Generating train split:  29%|██▉       | 47164/159972 [00:03\u003c00:07, 15495.11 examples/s]\n"}
+,{"stream_name":"stdout","time":1930.844052098,"data":"Generating train split:  31%|███▏      | 50049/159972 [00:03\u003c00:06, 15912.56 examples/s]\n"}
+,{"stream_name":"stdout","time":1931.040178022,"data":"Generating train split:  33%|███▎      | 53097/159972 [00:03\u003c00:06, 16667.09 examples/s]\n"}
+,{"stream_name":"stdout","time":1931.203028452,"data":"Generating train split:  35%|███▌      | 56099/159972 [00:03\u003c00:06, 16228.82 examples/s]\n"}
+,{"stream_name":"stdout","time":1931.36872861,"data":"Generating train split:  37%|███▋      | 59039/159972 [00:03\u003c00:06, 16731.13 examples/s]\n"}
+,{"stream_name":"stdout","time":1931.537375607,"data":"Generating train split:  38%|███▊      | 61588/159972 [00:04\u003c00:06, 16345.41 examples/s]\n"}
+,{"stream_name":"stdout","time":1931.709440241,"data":"Generating train split:  40%|████      | 64486/159972 [00:04\u003c00:05, 16610.91 examples/s]\n"}
+,{"stream_name":"stdout","time":1931.88507648,"data":"Generating train split:  42%|████▏     | 67444/159972 [00:04\u003c00:05, 16765.33 examples/s]\n"}
+,{"stream_name":"stdout","time":1932.054169355,"data":"Generating train split:  44%|████▍     | 70471/159972 [00:04\u003c00:05, 16935.30 examples/s]\n"}
+,{"stream_name":"stdout","time":1932.227020354,"data":"Generating train split:  46%|████▌     | 73372/159972 [00:04\u003c00:05, 16976.66 examples/s]\n"}
+,{"stream_name":"stdout","time":1932.399050444,"data":"Generating train split:  48%|████▊     | 76371/159972 [00:05\u003c00:04, 17085.98 examples/s]\n"}
+,{"stream_name":"stdout","time":1932.846502949,"data":"Generating train split:  50%|████▉     | 79387/159972 [00:05\u003c00:04, 17220.53 examples/s]\n"}
+,{"stream_name":"stdout","time":1933.016574026,"data":"Generating train split:  52%|█████▏    | 82387/159972 [00:05\u003c00:06, 11679.47 examples/s]\n"}
+,{"stream_name":"stdout","time":1933.192230773,"data":"Generating train split:  53%|█████▎    | 85343/159972 [00:05\u003c00:05, 12948.36 examples/s]\n"}
+,{"stream_name":"stdout","time":1933.375313552,"data":"Generating train split:  55%|█████▌    | 88341/159972 [00:05\u003c00:05, 13966.56 examples/s]\n"}
+,{"stream_name":"stdout","time":1933.542448868,"data":"Generating train split:  57%|█████▋    | 91225/159972 [00:06\u003c00:04, 14445.64 examples/s]\n"}
+,{"stream_name":"stdout","time":1933.704344482,"data":"Generating train split:  59%|█████▉    | 94295/159972 [00:06\u003c00:04, 15466.11 examples/s]\n"}
+,{"stream_name":"stdout","time":1933.867520509,"data":"Generating train split:  61%|██████    | 97343/159972 [00:06\u003c00:03, 16356.45 examples/s]\n"}
+,{"stream_name":"stdout","time":1934.028577758,"data":"Generating train split:  63%|██████▎   | 100321/159972 [00:06\u003c00:03, 16874.22 examples/s]\n"}
+,{"stream_name":"stdout","time":1934.192399379,"data":"Generating train split:  65%|██████▍   | 103341/159972 [00:06\u003c00:03, 17401.43 examples/s]\n"}
+,{"stream_name":"stdout","time":1934.355497391,"data":"Generating train split:  66%|██████▋   | 106322/159972 [00:06\u003c00:03, 17633.09 examples/s]\n"}
+,{"stream_name":"stdout","time":1934.518293616,"data":"Generating train split:  68%|██████▊   | 109323/159972 [00:07\u003c00:02, 17857.17 examples/s]\n"}
+,{"stream_name":"stdout","time":1934.680636365,"data":"Generating train split:  70%|███████   | 112277/159972 [00:07\u003c00:02, 17943.58 examples/s]\n"}
+,{"stream_name":"stdout","time":1934.841970124,"data":"Generating train split:  72%|███████▏  | 115278/159972 [00:07\u003c00:02, 18102.51 examples/s]\n"}
+,{"stream_name":"stdout","time":1935.004217495,"data":"Generating train split:  74%|███████▍  | 118229/159972 [00:07\u003c00:02, 18159.29 examples/s]\n"}
+,{"stream_name":"stdout","time":1935.423611721,"data":"Generating train split:  76%|███████▌  | 121062/159972 [00:07\u003c00:02, 17951.83 examples/s]\n"}
+,{"stream_name":"stdout","time":1935.584061487,"data":"Generating train split:  78%|███████▊  | 123979/159972 [00:08\u003c00:02, 12191.74 examples/s]\n"}
+,{"stream_name":"stdout","time":1935.746372622,"data":"Generating train split:  79%|███████▉  | 126884/159972 [00:08\u003c00:02, 13507.03 examples/s]\n"}
+,{"stream_name":"stdout","time":1935.910002387,"data":"Generating train split:  81%|████████  | 129837/159972 [00:08\u003c00:02, 14648.14 examples/s]\n"}
+,{"stream_name":"stdout","time":1936.071862162,"data":"Generating train split:  83%|████████▎ | 132844/159972 [00:08\u003c00:01, 15617.32 examples/s]\n"}
+,{"stream_name":"stdout","time":1936.238916938,"data":"Generating train split:  85%|████████▍ | 135820/159972 [00:08\u003c00:01, 16357.79 examples/s]\n"}
+,{"stream_name":"stdout","time":1936.401405557,"data":"Generating train split:  87%|████████▋ | 138862/159972 [00:09\u003c00:01, 16879.99 examples/s]\n"}
+,{"stream_name":"stdout","time":1936.561771347,"data":"Generating train split:  89%|████████▊ | 141634/159972 [00:09\u003c00:01, 16936.35 examples/s]\n"}
+,{"stream_name":"stdout","time":1936.725884289,"data":"Generating train split:  90%|█████████ | 144468/159972 [00:09\u003c00:00, 17143.77 examples/s]\n"}
+,{"stream_name":"stdout","time":1936.887229399,"data":"Generating train split:  92%|█████████▏| 147567/159972 [00:09\u003c00:00, 17654.85 examples/s]\n"}
+,{"stream_name":"stdout","time":1937.047706878,"data":"Generating train split:  94%|█████████▍| 150486/159972 [00:09\u003c00:00, 17783.68 examples/s]\n"}
+,{"stream_name":"stdout","time":1937.208787262,"data":"Generating train split:  96%|█████████▌| 153343/159972 [00:09\u003c00:00, 17789.58 examples/s]\n"}
+,{"stream_name":"stdout","time":1937.372422858,"data":"Generating train split:  98%|█████████▊| 156332/159972 [00:09\u003c00:00, 18015.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1937.411756435,"data":"Generating train split: 100%|█████████▉| 159337/159972 [00:10\u003c00:00, 18121.50 examples/s]\n"}
+,{"stream_name":"stdout","time":1937.411781915,"data":"Generating train split: 100%|██████████| 159972/159972 [00:10\u003c00:00, 15694.59 examples/s]\n"}
+,{"stream_name":"stdout","time":1937.424491057,"data":"[train] Loaded 16000 examples (rows 0-16000 of 159972)\n"}
+,{"stream_name":"stdout","time":1937.424509949,"data":"[train] No agent_traces.jsonl found — skipping\n"}
+,{"stream_name":"stdout","time":1939.912363073,"data":"\n"}
+,{"stream_name":"stdout","time":1942.483318057,"data":"Tokenizing:   0%|          | 0/16000 [00:00\u003c?, ? examples/s]\n"}
+,{"stream_name":"stdout","time":1943.806599584,"data":"Tokenizing:   6%|▋         | 1000/16000 [00:02\u003c00:38, 388.98 examples/s]\n"}
+,{"stream_name":"stdout","time":1945.11818127,"data":"Tokenizing:  12%|█▎        | 2000/16000 [00:03\u003c00:25, 544.38 examples/s]\n"}
+,{"stream_name":"stdout","time":1946.408522709,"data":"Tokenizing:  19%|█▉        | 3000/16000 [00:05\u003c00:20, 626.16 examples/s]\n"}
+,{"stream_name":"stdout","time":1947.652353668,"data":"Tokenizing:  25%|██▌       | 4000/16000 [00:06\u003c00:17, 677.51 examples/s]\n"}
+,{"stream_name":"stdout","time":1948.894234873,"data":"Tokenizing:  31%|███▏      | 5000/16000 [00:07\u003c00:15, 718.26 examples/s]\n"}
+,{"stream_name":"stdout","time":1950.172990006,"data":"Tokenizing:  38%|███▊      | 6000/16000 [00:08\u003c00:13, 745.65 examples/s]\n"}
+,{"stream_name":"stdout","time":1951.439584247,"data":"Tokenizing:  44%|████▍     | 7000/16000 [00:10\u003c00:11, 757.16 examples/s]\n"}
+,{"stream_name":"stdout","time":1952.777693543,"data":"Tokenizing:  50%|█████     | 8000/16000 [00:11\u003c00:10, 767.17 examples/s]\n"}
+,{"stream_name":"stdout","time":1954.069747583,"data":"Tokenizing:  56%|█████▋    | 9000/16000 [00:12\u003c00:09, 760.85 examples/s]\n"}
+,{"stream_name":"stdout","time":1955.382149598,"data":"Tokenizing:  62%|██████▎   | 10000/16000 [00:14\u003c00:07, 764.83 examples/s]\n"}
+,{"stream_name":"stdout","time":1956.741201051,"data":"Tokenizing:  69%|██████▉   | 11000/16000 [00:15\u003c00:06, 763.98 examples/s]\n"}
+,{"stream_name":"stdout","time":1958.056201154,"data":"Tokenizing:  75%|███████▌  | 12000/16000 [00:16\u003c00:05, 755.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1959.334540593,"data":"Tokenizing:  81%|████████▏ | 13000/16000 [00:18\u003c00:03, 756.76 examples/s]\n"}
+,{"stream_name":"stdout","time":1960.750114252,"data":"Tokenizing:  88%|████████▊ | 14000/16000 [00:19\u003c00:02, 764.28 examples/s]\n"}
+,{"stream_name":"stdout","time":1962.019113945,"data":"Tokenizing:  94%|█████████▍| 15000/16000 [00:20\u003c00:01, 745.87 examples/s]\n"}
+,{"stream_name":"stdout","time":1962.097302723,"data":"Tokenizing: 100%|██████████| 16000/16000 [00:22\u003c00:00, 758.09 examples/s]\n"}
+,{"stream_name":"stdout","time":1962.097362763,"data":"Tokenizing: 100%|██████████| 16000/16000 [00:22\u003c00:00, 721.21 examples/s]\n"}
+,{"stream_name":"stdout","time":1962.098224056,"data":"[train] 16000 examples | 2 GPU(s) | eff_batch=32 | 500 steps | checkpoint every 100 steps (~20%)\n"}
+,{"stream_name":"stdout","time":1962.318090134,"data":"[train] Checkpoints will upload to HF Hub: mateo0093/le-gros-chaton-qwen-sft-ckpt\n"}
+,{"stream_name":"stdout","time":1962.341795899,"data":"[train] Starting SFT (1 epoch(s), 0.0002)...\n"}
+,{"stream_name":"stdout","time":1963.491492788,"data":"\n"}
+,{"stream_name":"stdout","time":1963.524683322,"data":"  0%|          | 0/500 [00:00\u003c?, ?it/s]huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...\n"}
+,{"stream_name":"stdout","time":1963.524713839,"data":"To disable this warning, you can either:\n"}
+,{"stream_name":"stdout","time":1963.52472067,"data":"\t- Avoid using `tokenizers` before the fork if possible\n"}
+,{"stream_name":"stdout","time":1963.52472584,"data":"\t- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)\n"}
+,{"stream_name":"stdout","time":1963.552270667,"data":"huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...\n"}
+,{"stream_name":"stdout","time":1963.552294125,"data":"To disable this warning, you can either:\n"}
+,{"stream_name":"stdout","time":1963.552299979,"data":"\t- Avoid using `tokenizers` before the fork if possible\n"}
+,{"stream_name":"stdout","time":1963.552305489,"data":"\t- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)\n"}
+,{"stream_name":"stdout","time":1969.087150636,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stdout","time":1969.087183952,"data":"  File \"/kaggle/working/le-gros-chaton/train_qwen.py\", line 627, in \u003cmodule\u003e\n"}
+,{"stream_name":"stdout","time":1969.087728559,"data":"    main()\n"}
+,{"stream_name":"stdout","time":1969.087750071,"data":"  File \"/kaggle/working/le-gros-chaton/train_qwen.py\", line 574, in main\n"}
+,{"stream_name":"stdout","time":1969.088067029,"data":"    sft_path = train_sft(\n"}
+,{"stream_name":"stdout","time":1969.088080532,"data":"               ^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.088094772,"data":"  File \"/kaggle/working/le-gros-chaton/train_qwen.py\", line 328, in train_sft\n"}
+,{"stream_name":"stdout","time":1969.088360926,"data":"    trainer.train(resume_from_checkpoint=resume_from_checkpoint)\n"}
+,{"stream_name":"stdout","time":1969.088409329,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1437, in train\n"}
+,{"stream_name":"stdout","time":1969.089059588,"data":"    return inner_training_loop(\n"}
+,{"stream_name":"stdout","time":1969.089082807,"data":"           ^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.089088555,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1519, in _inner_training_loop\n"}
+,{"stream_name":"stdout","time":1969.089571013,"data":"    self._run_epoch(\n"}
+,{"stream_name":"stdout","time":1969.089580202,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1747, in _run_epoch\n"}
+,{"stream_name":"stdout","time":1969.090149954,"data":"    tr_loss_step = self.training_step(model, inputs, num_items_in_batch)\n"}
+,{"stream_name":"stdout","time":1969.09030285,"data":"                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.090310338,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1919, in training_step\n"}
+,{"stream_name":"stdout","time":1969.090904404,"data":"    loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)\n"}
+,{"stream_name":"stdout","time":1969.091093397,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.091103915,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1993, in compute_loss\n"}
+,{"stream_name":"stdout","time":1969.091718225,"data":"    outputs = model(**inputs)\n"}
+,{"stream_name":"stdout","time":1969.09185049,"data":"              ^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.091979267,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1776, in _wrapped_call_impl\n"}
+,{"stream_name":"stdout","time":1969.093519207,"data":"    return self._call_impl(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.093645739,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.093664057,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1787, in _call_impl\n"}
+,{"stream_name":"stdout","time":1969.094072764,"data":"    return forward_call(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.09413283,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.094138945,"data":"  File \"/usr/local/lib/python3.12/dist-packages/accelerate/utils/operations.py\", line 823, in forward\n"}
+,{"stream_name":"stdout","time":1969.095445634,"data":"    return model_forward(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.095554197,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.095564015,"data":"  File \"/usr/local/lib/python3.12/dist-packages/accelerate/utils/operations.py\", line 811, in __call__\n"}
+,{"stream_name":"stdout","time":1969.095808704,"data":"    return convert_to_fp32(self.model_forward(*args, **kwargs))\n"}
+,{"stream_name":"stdout","time":1969.095942083,"data":"                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.095948135,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/amp/autocast_mode.py\", line 44, in decorate_autocast\n"}
+,{"stream_name":"stdout","time":1969.09811196,"data":"    return func(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.098209679,"data":"           ^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.0982174,"data":"  File \"/usr/local/lib/python3.12/dist-packages/peft/peft_model.py\", line 1993, in forward\n"}
+,{"stream_name":"stdout","time":1969.10136278,"data":"    return self.base_model(\n"}
+,{"stream_name":"stdout","time":1969.101374584,"data":"           ^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.101378692,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1776, in _wrapped_call_impl\n"}
+,{"stream_name":"stdout","time":1969.10184265,"data":"    return self._call_impl(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.101938968,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.101945239,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1787, in _call_impl\n"}
+,{"stream_name":"stdout","time":1969.102366108,"data":"    return forward_call(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.102455542,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.102462578,"data":"  File \"/usr/local/lib/python3.12/dist-packages/peft/tuners/tuners_utils.py\", line 330, in forward\n"}
+,{"stream_name":"stdout","time":1969.103350038,"data":"    return self.model.forward(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.103450691,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.103457382,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/utils/generic.py\", line 911, in wrapper\n"}
+,{"stream_name":"stdout","time":1969.104955369,"data":"    output = func(self, *args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.105112173,"data":"             ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.105126744,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/models/qwen3_5/modeling_qwen3_5.py\", line 1671, in forward\n"}
+,{"stream_name":"stdout","time":1969.105588058,"data":"    loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.10583366,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.105843795,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/loss/loss_utils.py\", line 70, in ForCausalLMLoss\n"}
+,{"stream_name":"stdout","time":1969.1070951,"data":"    loss = fixed_cross_entropy(logits, shift_labels, num_items_in_batch, ignore_index, **kwargs)\n"}
+,{"stream_name":"stdout","time":1969.107317806,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.107327104,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/loss/loss_utils.py\", line 40, in fixed_cross_entropy\n"}
+,{"stream_name":"stdout","time":1969.107430097,"data":"    loss = nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction=reduction)\n"}
+,{"stream_name":"stdout","time":1969.107669263,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.107678077,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/functional.py\", line 3504, in cross_entropy\n"}
+,{"stream_name":"stdout","time":1969.109740662,"data":"    return torch._C._nn.cross_entropy_loss(\n"}
+,{"stream_name":"stdout","time":1969.109752025,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1969.109873557,"data":"torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1.89 GiB. GPU 0 has a total capacity of 14.56 GiB of which 1.09 GiB is free. Including non-PyTorch memory, this process has 13.47 GiB memory in use. Of the allocated memory 13.15 GiB is allocated by PyTorch, and 190.04 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)\n"}
+,{"stream_name":"stdout","time":1969.580956359,"data":"\n"}
+,{"stream_name":"stdout","time":1969.581000486,"data":"  0%|          | 0/500 [00:06\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":1973.15167923,"data":"=== train_qwen.py output tail ===\n"}
+,{"stream_name":"stdout","time":1973.15274294,"data":"[train] === Le Gros Chaton - Coding Agent Training ===\n"}
+,{"stream_name":"stdout","time":1973.152780413,"data":"[train] Model: Qwen/Qwen3.5-9B\n"}
+,{"stream_name":"stdout","time":1973.152785751,"data":"[train] Dataset: Nexlab/fable5-agentic-coding-sft\n"}
+,{"stream_name":"stdout","time":1973.152789802,"data":"[train] Output: qwen_coding_agent\n"}
+,{"stream_name":"stdout","time":1973.152793283,"data":"[train] Loading Qwen/Qwen3.5-9B...\n"}
+,{"stream_name":"stdout","time":1973.152797378,"data":"[train] model_type=qwen3_5 text_model_type=qwen3_5_text layers=32\n"}
+,{"stream_name":"stdout","time":1973.152801647,"data":"\n"}
+,{"stream_name":"stdout","time":1973.15280497,"data":"Fetching 4 files:   0%|          | 0/4 [00:00\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":1973.152825707,"data":"Fetching 4 files:  25%|██▌       | 1/4 [14:32\u003c43:36, 872.28s/it]\n"}
+,{"stream_name":"stdout","time":1973.152830322,"data":"Fetching 4 files:  50%|█████     | 2/4 [14:39\u003c12:07, 363.69s/it]\n"}
+,{"stream_name":"stdout","time":1973.152834239,"data":"Fetching 4 files:  75%|███████▌  | 3/4 [30:20\u003c10:27, 627.30s/it]\n"}
+,{"stream_name":"stdout","time":1973.152838638,"data":"Fetching 4 files: 100%|██████████| 4/4 [30:20\u003c00:00, 455.24s/it]\n"}
+,{"stream_name":"stdout","time":1973.152844039,"data":"[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d\n"}
+,{"stream_name":"stdout","time":1973.152849269,"data":"\n"}
+,{"stream_name":"stdout","time":1973.152853364,"data":"Loading weights:   0%|          | 0/427 [00:00\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":1973.15287536,"data":"Loading weights:   0%|          | 1/427 [00:08\u003c56:57,  8.02s/it]\n"}
+,{"stream_name":"stdout","time":1973.152879435,"data":"Loading weights:   0%|          | 2/427 [00:08\u003c27:08,  3.83s/it]\n"}
+,{"stream_name":"stdout","time":1973.15288353,"data":"Loading weights:   2%|▏         | 7/427 [00:09\u003c05:22,  1.30it/s]\n"}
+,{"stream_name":"stdout","time":1973.152887608,"data":"Loading weights:   2%|▏         | 9/427 [00:09\u003c03:51,  1.80it/s]\n"}
+,{"stream_name":"stdout","time":1973.152891747,"data":"Loading weights:   3%|▎         | 11/427 [00:09\u003c02:47,  2.48it/s]\n"}
+,{"stream_name":"stdout","time":1973.152896283,"data":"Loading weights:   3%|▎         | 13/427 [00:09\u003c02:29,  2.77it/s]\n"}
+,{"stream_name":"stdout","time":1973.152900472,"data":"Loading weights:   3%|▎         | 14/427 [00:10\u003c02:32,  2.72it/s]\n"}
+,{"stream_name":"stdout","time":1973.152904474,"data":"Loading weights:   4%|▎         | 15/427 [00:10\u003c02:34,  2.67it/s]\n"}
+,{"stream_name":"stdout","time":1973.152908498,"data":"Loading weights:   5%|▌         | 23/427 [00:11\u003c00:54,  7.38it/s]\n"}
+,{"stream_name":"stdout","time":1973.152912552,"data":"Loading weights:   6%|▌         | 25/427 [00:11\u003c00:48,  8.24it/s]\n"}
+,{"stream_name":"stdout","time":1973.15291678,"data":"Loading weights:   6%|▋         | 27/427 [00:11\u003c01:01,  6.48it/s]\n"}
+,{"stream_name":"stdout","time":1973.152925093,"data":"Loading weights:   7%|▋         | 29/427 [00:12\u003c01:25,  4.63it/s]\n"}
+,{"stream_name":"stdout","time":1973.152938597,"data":"Loading weights:   9%|▉         | 38/427 [00:12\u003c00:36, 10.64it/s]\n"}
+,{"stream_name":"stdout","time":1973.152943515,"data":"Loading weights:  10%|▉         | 41/427 [00:12\u003c00:32, 11.72it/s]\n"}
+,{"stream_name":"stdout","time":1973.15294806,"data":"Loading weights:  11%|█         | 46/427 [00:12\u003c00:24, 15.48it/s]\n"}
+,{"stream_name":"stdout","time":1973.152952563,"data":"Loading weights:  12%|█▏        | 51/427 [00:13\u003c00:19, 19.63it/s]\n"}
+,{"stream_name":"stdout","time":1973.152984065,"data":"Loading weights:  13%|█▎        | 55/427 [00:13\u003c00:16, 22.50it/s]\n"}
+,{"stream_name":"stdout","time":1973.152992582,"data":"Loading weights:  15%|█▍        | 63/427 [00:13\u003c00:11, 31.23it/s]\n"}
+,{"stream_name":"stdout","time":1973.152996825,"data":"Loading weights:  16%|█▌        | 68/427 [00:13\u003c00:12, 27.77it/s]\n"}
+,{"stream_name":"stdout","time":1973.153000889,"data":"Loading weights:  18%|█▊        | 77/427 [00:13\u003c00:08, 39.15it/s]\n"}
+,{"stream_name":"stdout","time":1973.153004966,"data":"Loading weights:  19%|█▉        | 83/427 [00:13\u003c00:09, 35.59it/s]\n"}
+,{"stream_name":"stdout","time":1973.153009036,"data":"Loading weights:  22%|██▏       | 93/427 [00:14\u003c00:08, 39.74it/s]\n"}
+,{"stream_name":"stdout","time":1973.153013425,"data":"Loading weights:  23%|██▎       | 99/427 [00:14\u003c00:07, 41.67it/s]\n"}
+,{"stream_name":"stdout","time":1973.153017483,"data":"Loading weights:  25%|██▍       | 105/427 [00:14\u003c00:07, 41.02it/s]\n"}
+,{"stream_name":"stdout","time":1973.153021578,"data":"Loading weights:  27%|██▋       | 116/427 [00:14\u003c00:06, 48.78it/s]\n"}
+,{"stream_name":"stdout","time":1973.15302566,"data":"Loading weights:  29%|██▊       | 122/427 [00:14\u003c00:07, 40.30it/s]\n"}
+,{"stream_name":"stdout","time":1973.153030503,"data":"Loading weights:  31%|███       | 132/427 [00:14\u003c00:06, 42.79it/s]\n"}
+,{"stream_name":"stdout","time":1973.153035567,"data":"Loading weights:  33%|███▎      | 143/427 [00:15\u003c00:06, 41.46it/s]\n"}
+,{"stream_name":"stdout","time":1973.153040735,"data":"Loading weights:  35%|███▍      | 148/427 [00:16\u003c00:16, 16.50it/s]\n"}
+,{"stream_name":"stdout","time":1973.153045923,"data":"Loading weights:  36%|███▌      | 152/427 [00:17\u003c00:23, 11.68it/s]\n"}
+,{"stream_name":"stdout","time":1973.153050957,"data":"Loading weights:  36%|███▋      | 155/427 [00:17\u003c00:31,  8.70it/s]\n"}
+,{"stream_name":"stdout","time":1973.153055273,"data":"Loading weights:  37%|███▋      | 158/427 [00:18\u003c00:27,  9.66it/s]\n"}
+,{"stream_name":"stdout","time":1973.153059365,"data":"Loading weights:  37%|███▋      | 160/427 [00:18\u003c00:28,  9.26it/s]\n"}
+,{"stream_name":"stdout","time":1973.153063397,"data":"Loading weights:  39%|███▉      | 168/427 [00:18\u003c00:19, 13.27it/s]\n"}
+,{"stream_name":"stdout","time":1973.15306754,"data":"Loading weights:  40%|███▉      | 170/427 [00:18\u003c00:19, 13.50it/s]\n"}
+,{"stream_name":"stdout","time":1973.153071617,"data":"Loading weights:  40%|████      | 172/427 [00:19\u003c00:27,  9.42it/s]\n"}
+,{"stream_name":"stdout","time":1973.153075706,"data":"Loading weights:  41%|████      | 174/427 [00:20\u003c00:40,  6.19it/s]\n"}
+,{"stream_name":"stdout","time":1973.153079796,"data":"Loading weights:  43%|████▎     | 182/427 [00:20\u003c00:22, 10.71it/s]\n"}
+,{"stream_name":"stdout","time":1973.153083948,"data":"Loading weights:  43%|████▎     | 184/427 [00:20\u003c00:21, 11.27it/s]\n"}
+,{"stream_name":"stdout","time":1973.153088063,"data":"Loading weights:  44%|████▎     | 186/427 [00:20\u003c00:23, 10.18it/s]\n"}
+,{"stream_name":"stdout","time":1973.153092163,"data":"Loading weights:  46%|████▌     | 197/427 [00:20\u003c00:11, 20.62it/s]\n"}
+,{"stream_name":"stdout","time":1973.153096205,"data":"Loading weights:  47%|████▋     | 201/427 [00:21\u003c00:12, 18.76it/s]\n"}
+,{"stream_name":"stdout","time":1973.153100278,"data":"Loading weights:  48%|████▊     | 205/427 [00:21\u003c00:11, 19.96it/s]\n"}
+,{"stream_name":"stdout","time":1973.153113677,"data":"Loading weights:  49%|████▊     | 208/427 [00:21\u003c00:10, 20.24it/s]\n"}
+,{"stream_name":"stdout","time":1973.153127286,"data":"Loading weights:  50%|████▉     | 213/427 [00:21\u003c00:09, 23.72it/s]\n"}
+,{"stream_name":"stdout","time":1973.153132278,"data":"Loading weights:  52%|█████▏    | 222/427 [00:21\u003c00:06, 33.39it/s]\n"}
+,{"stream_name":"stdout","time":1973.153137332,"data":"Loading weights:  53%|█████▎    | 226/427 [00:22\u003c00:15, 13.28it/s]\n"}
+,{"stream_name":"stdout","time":1973.153142266,"data":"Loading weights:  54%|█████▎    | 229/427 [00:23\u003c00:17, 11.53it/s]\n"}
+,{"stream_name":"stdout","time":1973.15314731,"data":"Loading weights:  55%|█████▌    | 236/427 [00:23\u003c00:11, 16.71it/s]\n"}
+,{"stream_name":"stdout","time":1973.153151722,"data":"Loading weights:  56%|█████▌    | 240/427 [00:24\u003c00:19,  9.78it/s]\n"}
+,{"stream_name":"stdout","time":1973.153155786,"data":"Loading weights:  57%|█████▋    | 243/427 [00:24\u003c00:20,  9.19it/s]\n"}
+,{"stream_name":"stdout","time":1973.153159877,"data":"Loading weights:  59%|█████▊    | 250/427 [00:24\u003c00:12, 13.88it/s]\n"}
+,{"stream_name":"stdout","time":1973.153164,"data":"Loading weights:  59%|█████▉    | 253/427 [00:25\u003c00:16, 10.73it/s]\n"}
+,{"stream_name":"stdout","time":1973.153168111,"data":"Loading weights:  60%|█████▉    | 256/427 [00:25\u003c00:22,  7.58it/s]\n"}
+,{"stream_name":"stdout","time":1973.153172249,"data":"Loading weights:  60%|██████    | 258/427 [00:26\u003c00:24,  6.95it/s]\n"}
+,{"stream_name":"stdout","time":1973.153176422,"data":"Loading weights:  61%|██████    | 260/427 [00:26\u003c00:21,  7.73it/s]\n"}
+,{"stream_name":"stdout","time":1973.153180478,"data":"Loading weights:  62%|██████▏   | 266/427 [00:26\u003c00:12, 12.58it/s]\n"}
+,{"stream_name":"stdout","time":1973.153184567,"data":"Loading weights:  64%|██████▍   | 275/427 [00:26\u003c00:07, 21.03it/s]\n"}
+,{"stream_name":"stdout","time":1973.153188701,"data":"Loading weights:  65%|██████▌   | 279/427 [00:27\u003c00:07, 18.73it/s]\n"}
+,{"stream_name":"stdout","time":1973.153192768,"data":"Loading weights:  67%|██████▋   | 288/427 [00:27\u003c00:06, 22.97it/s]\n"}
+,{"stream_name":"stdout","time":1973.153196938,"data":"Loading weights:  68%|██████▊   | 292/427 [00:28\u003c00:09, 14.23it/s]\n"}
+,{"stream_name":"stdout","time":1973.153201079,"data":"Loading weights:  69%|██████▉   | 295/427 [00:28\u003c00:14,  9.30it/s]\n"}
+,{"stream_name":"stdout","time":1973.15320962,"data":"Loading weights:  71%|███████   | 303/427 [00:28\u003c00:08, 14.40it/s]\n"}
+,{"stream_name":"stdout","time":1973.153222209,"data":"Loading weights:  72%|███████▏  | 307/427 [00:29\u003c00:13,  9.15it/s]\n"}
+,{"stream_name":"stdout","time":1973.153227132,"data":"Loading weights:  73%|███████▎  | 310/427 [00:30\u003c00:14,  8.27it/s]\n"}
+,{"stream_name":"stdout","time":1973.153232053,"data":"Loading weights:  73%|███████▎  | 312/427 [00:31\u003c00:18,  6.31it/s]\n"}
+,{"stream_name":"stdout","time":1973.153237202,"data":"Loading weights:  74%|███████▎  | 314/427 [00:31\u003c00:18,  6.02it/s]\n"}
+,{"stream_name":"stdout","time":1973.153242287,"data":"Loading weights:  74%|███████▍  | 317/427 [00:31\u003c00:14,  7.44it/s]\n"}
+,{"stream_name":"stdout","time":1973.153246609,"data":"Loading weights:  77%|███████▋  | 327/427 [00:31\u003c00:06, 15.78it/s]\n"}
+,{"stream_name":"stdout","time":1973.153251364,"data":"Loading weights:  78%|███████▊  | 331/427 [00:32\u003c00:06, 15.63it/s]\n"}
+,{"stream_name":"stdout","time":1973.153262483,"data":"Loading weights:  78%|███████▊  | 335/427 [00:32\u003c00:05, 18.23it/s]\n"}
+,{"stream_name":"stdout","time":1973.153266727,"data":"Loading weights:  80%|████████  | 342/427 [00:32\u003c00:03, 25.01it/s]\n"}
+,{"stream_name":"stdout","time":1973.153270944,"data":"Loading weights:  81%|████████  | 346/427 [00:32\u003c00:03, 21.74it/s]\n"}
+,{"stream_name":"stdout","time":1973.153275017,"data":"Loading weights:  83%|████████▎ | 355/427 [00:32\u003c00:02, 30.46it/s]\n"}
+,{"stream_name":"stdout","time":1973.153279256,"data":"Loading weights:  84%|████████▍ | 360/427 [00:33\u003c00:02, 23.68it/s]\n"}
+,{"stream_name":"stdout","time":1973.15328336,"data":"Loading weights:  85%|████████▌ | 364/427 [00:33\u003c00:02, 23.69it/s]\n"}
+,{"stream_name":"stdout","time":1973.153287553,"data":"Loading weights:  86%|████████▌ | 368/427 [00:34\u003c00:04, 12.68it/s]\n"}
+,{"stream_name":"stdout","time":1973.153291795,"data":"Loading weights:  87%|████████▋ | 371/427 [00:34\u003c00:04, 13.56it/s]\n"}
+,{"stream_name":"stdout","time":1973.153295968,"data":"Loading weights:  89%|████████▉ | 380/427 [00:34\u003c00:02, 18.25it/s]\n"}
+,{"stream_name":"stdout","time":1973.153304257,"data":"Loading weights:  90%|████████▉ | 383/427 [00:34\u003c00:02, 16.42it/s]\n"}
+,{"stream_name":"stdout","time":1973.153308007,"data":"Loading weights:  90%|█████████ | 386/427 [00:34\u003c00:02, 15.65it/s]\n"}
+,{"stream_name":"stdout","time":1973.153321446,"data":"Loading weights:  92%|█████████▏| 394/427 [00:35\u003c00:01, 21.68it/s]\n"}
+,{"stream_name":"stdout","time":1973.153326433,"data":"Loading weights:  93%|█████████▎| 397/427 [00:35\u003c00:01, 18.50it/s]\n"}
+,{"stream_name":"stdout","time":1973.153331212,"data":"Loading weights:  94%|█████████▎| 400/427 [00:35\u003c00:01, 16.48it/s]\n"}
+,{"stream_name":"stdout","time":1973.153336283,"data":"Loading weights:  96%|█████████▌| 409/427 [00:35\u003c00:00, 25.85it/s]\n"}
+,{"stream_name":"stdout","time":1973.153341162,"data":"Loading weights:  97%|█████████▋| 413/427 [00:36\u003c00:01, 11.98it/s]\n"}
+,{"stream_name":"stdout","time":1973.153345395,"data":"Loading weights:  97%|█████████▋| 416/427 [00:37\u003c00:01, 10.68it/s]\n"}
+,{"stream_name":"stdout","time":1973.153349538,"data":"Loading weights:  98%|█████████▊| 418/427 [00:37\u003c00:01,  7.01it/s]\n"}
+,{"stream_name":"stdout","time":1973.153353709,"data":"Loading weights:  98%|█████████▊| 420/427 [00:38\u003c00:01,  6.51it/s]\n"}
+,{"stream_name":"stdout","time":1973.153357851,"data":"Loading weights:  99%|█████████▉| 423/427 [00:38\u003c00:00,  7.99it/s]\n"}
+,{"stream_name":"stdout","time":1973.15336198,"data":"Loading weights: 100%|██████████| 427/427 [00:38\u003c00:00, 11.07it/s]\n"}
+,{"stream_name":"stdout","time":1973.153366122,"data":"trainable params: 43,278,336 || all params: 8,997,081,600 || trainable%: 0.4810\n"}
+,{"stream_name":"stdout","time":1973.153370256,"data":"\n"}
+,{"stream_name":"stdout","time":1973.153373915,"data":"Fetching 9 files:   0%|          | 0/9 [00:00\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":1973.153378242,"data":"Fetching 9 files:  11%|█         | 1/9 [00:00\u003c00:01,  6.07it/s]\n"}
+,{"stream_name":"stdout","time":1973.153382382,"data":"Fetching 9 files:  44%|████▍     | 4/9 [00:03\u003c00:04,  1.04it/s]\n"}
+,{"stream_name":"stdout","time":1973.153390567,"data":"Fetching 9 files: 100%|██████████| 9/9 [00:03\u003c00:00,  2.49it/s]\n"}
+,{"stream_name":"stdout","time":1973.153394977,"data":"[train] Loading SFT adapter from /root/.cache/huggingface/hub/models--mateo0093--le-gros-chaton-qwen/snapshots/efd519a52c6e6ee6a456571eee615599f0c310d0\n"}
+,{"stream_name":"stdout","time":1973.153403175,"data":"trainable params: 43,278,336 || all params: 8,997,081,600 || trainable%: 0.4810\n"}
+,{"stream_name":"stdout","time":1973.153416526,"data":"[train] Loaded in 1874.0s\n"}
+,{"stream_name":"stdout","time":1973.153421529,"data":"[train] GPU 0: 0.0GB / 15.6GB used\n"}
+,{"stream_name":"stdout","time":1973.153426317,"data":"[train] GPU 1: 7.8GB / 15.6GB used\n"}
+,{"stream_name":"stdout","time":1973.153430936,"data":"\n"}
+,{"stream_name":"stdout","time":1973.153435398,"data":"==================================================\n"}
+,{"stream_name":"stdout","time":1973.153439555,"data":"[train] PHASE 1: SFT on Nexlab/fable5-agentic-coding-sft\n"}
+,{"stream_name":"stdout","time":1973.153443508,"data":"==================================================\n"}
+,{"stream_name":"stdout","time":1973.15344743,"data":"[train] Loading Fable5 dataset (160k rows)...\n"}
+,{"stream_name":"stdout","time":1973.153451381,"data":"\n"}
+,{"stream_name":"stdout","time":1973.153455152,"data":"Generating train split:   0%|          | 0/159972 [00:00\u003c?, ? examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153459202,"data":"Generating train split:   0%|          | 43/159972 [00:00\u003c15:31, 171.75 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153463266,"data":"Generating train split:   0%|          | 230/159972 [00:00\u003c04:13, 631.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153467295,"data":"Generating train split:   2%|▏         | 3188/159972 [00:00\u003c00:21, 7455.88 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153471447,"data":"Generating train split:   4%|▍         | 6263/159972 [00:00\u003c00:13, 11570.64 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153475749,"data":"Generating train split:   6%|▌         | 9368/159972 [00:00\u003c00:10, 13979.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153479926,"data":"Generating train split:   8%|▊         | 12308/159972 [00:01\u003c00:09, 15146.33 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153484021,"data":"Generating train split:  10%|▉         | 15267/159972 [00:01\u003c00:09, 15836.91 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153488156,"data":"Generating train split:  11%|█▏        | 18273/159972 [00:01\u003c00:08, 16715.97 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153497335,"data":"Generating train split:  13%|█▎        | 21176/159972 [00:01\u003c00:08, 17151.47 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153510138,"data":"Generating train split:  15%|█▌        | 24232/159972 [00:01\u003c00:07, 17700.71 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153515028,"data":"Generating train split:  17%|█▋        | 27108/159972 [00:01\u003c00:07, 17774.53 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153520118,"data":"Generating train split:  19%|█▊        | 29644/159972 [00:02\u003c00:07, 17282.76 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153525005,"data":"Generating train split:  20%|██        | 32669/159972 [00:02\u003c00:07, 17738.48 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153530426,"data":"Generating train split:  22%|██▏       | 35629/159972 [00:02\u003c00:07, 17672.66 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153534867,"data":"Generating train split:  24%|██▍       | 38289/159972 [00:02\u003c00:10, 11847.28 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153543053,"data":"Generating train split:  26%|██▌       | 41237/159972 [00:02\u003c00:08, 13239.53 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153547332,"data":"Generating train split:  28%|██▊       | 44192/159972 [00:03\u003c00:08, 14428.78 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153551464,"data":"Generating train split:  29%|██▉       | 47164/159972 [00:03\u003c00:07, 15495.11 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153555675,"data":"Generating train split:  31%|███▏      | 50049/159972 [00:03\u003c00:06, 15912.56 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153559975,"data":"Generating train split:  33%|███▎      | 53097/159972 [00:03\u003c00:06, 16667.09 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153564147,"data":"Generating train split:  35%|███▌      | 56099/159972 [00:03\u003c00:06, 16228.82 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153568333,"data":"Generating train split:  37%|███▋      | 59039/159972 [00:03\u003c00:06, 16731.13 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153572501,"data":"Generating train split:  38%|███▊      | 61588/159972 [00:04\u003c00:06, 16345.41 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153576675,"data":"Generating train split:  40%|████      | 64486/159972 [00:04\u003c00:05, 16610.91 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153580875,"data":"Generating train split:  42%|████▏     | 67444/159972 [00:04\u003c00:05, 16765.33 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153585117,"data":"Generating train split:  44%|████▍     | 70471/159972 [00:04\u003c00:05, 16935.30 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153593293,"data":"Generating train split:  46%|████▌     | 73372/159972 [00:04\u003c00:05, 16976.66 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153607815,"data":"Generating train split:  48%|████▊     | 76371/159972 [00:05\u003c00:04, 17085.98 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153613153,"data":"Generating train split:  50%|████▉     | 79387/159972 [00:05\u003c00:04, 17220.53 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153618466,"data":"Generating train split:  52%|█████▏    | 82387/159972 [00:05\u003c00:06, 11679.47 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153623513,"data":"Generating train split:  53%|█████▎    | 85343/159972 [00:05\u003c00:05, 12948.36 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153628514,"data":"Generating train split:  55%|█████▌    | 88341/159972 [00:05\u003c00:05, 13966.56 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153632853,"data":"Generating train split:  57%|█████▋    | 91225/159972 [00:06\u003c00:04, 14445.64 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153637032,"data":"Generating train split:  59%|█████▉    | 94295/159972 [00:06\u003c00:04, 15466.11 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153641586,"data":"Generating train split:  61%|██████    | 97343/159972 [00:06\u003c00:03, 16356.45 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153645789,"data":"Generating train split:  63%|██████▎   | 100321/159972 [00:06\u003c00:03, 16874.22 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153650329,"data":"Generating train split:  65%|██████▍   | 103341/159972 [00:06\u003c00:03, 17401.43 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153654473,"data":"Generating train split:  66%|██████▋   | 106322/159972 [00:06\u003c00:03, 17633.09 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.15365871,"data":"Generating train split:  68%|██████▊   | 109323/159972 [00:07\u003c00:02, 17857.17 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153666575,"data":"Generating train split:  70%|███████   | 112277/159972 [00:07\u003c00:02, 17943.58 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153670812,"data":"Generating train split:  72%|███████▏  | 115278/159972 [00:07\u003c00:02, 18102.51 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153674995,"data":"Generating train split:  74%|███████▍  | 118229/159972 [00:07\u003c00:02, 18159.29 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153679226,"data":"Generating train split:  76%|███████▌  | 121062/159972 [00:07\u003c00:02, 17951.83 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.15368707,"data":"Generating train split:  78%|███████▊  | 123979/159972 [00:08\u003c00:02, 12191.74 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153691022,"data":"Generating train split:  79%|███████▉  | 126884/159972 [00:08\u003c00:02, 13507.03 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153710222,"data":"Generating train split:  81%|████████  | 129837/159972 [00:08\u003c00:02, 14648.14 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153715141,"data":"Generating train split:  83%|████████▎ | 132844/159972 [00:08\u003c00:01, 15617.32 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153720258,"data":"Generating train split:  85%|████████▍ | 135820/159972 [00:08\u003c00:01, 16357.79 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153725138,"data":"Generating train split:  87%|████████▋ | 138862/159972 [00:09\u003c00:01, 16879.99 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153729497,"data":"Generating train split:  89%|████████▊ | 141634/159972 [00:09\u003c00:01, 16936.35 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.15373376,"data":"Generating train split:  90%|█████████ | 144468/159972 [00:09\u003c00:00, 17143.77 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153738019,"data":"Generating train split:  92%|█████████▏| 147567/159972 [00:09\u003c00:00, 17654.85 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153742226,"data":"Generating train split:  94%|█████████▍| 150486/159972 [00:09\u003c00:00, 17783.68 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153747357,"data":"Generating train split:  96%|█████████▌| 153343/159972 [00:09\u003c00:00, 17789.58 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153751298,"data":"Generating train split:  98%|█████████▊| 156332/159972 [00:09\u003c00:00, 18015.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153755635,"data":"Generating train split: 100%|█████████▉| 159337/159972 [00:10\u003c00:00, 18121.50 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153759892,"data":"Generating train split: 100%|██████████| 159972/159972 [00:10\u003c00:00, 15694.59 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153764124,"data":"[train] Loaded 16000 examples (rows 0-16000 of 159972)\n"}
+,{"stream_name":"stdout","time":1973.153768063,"data":"[train] No agent_traces.jsonl found — skipping\n"}
+,{"stream_name":"stdout","time":1973.153772072,"data":"\n"}
+,{"stream_name":"stdout","time":1973.153775828,"data":"Tokenizing:   0%|          | 0/16000 [00:00\u003c?, ? examples/s]\n"}
+,{"stream_name":"stdout","time":1973.15378365,"data":"Tokenizing:   6%|▋         | 1000/16000 [00:02\u003c00:38, 388.98 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.15378719,"data":"Tokenizing:  12%|█▎        | 2000/16000 [00:03\u003c00:25, 544.38 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153805127,"data":"Tokenizing:  19%|█▉        | 3000/16000 [00:05\u003c00:20, 626.16 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153810187,"data":"Tokenizing:  25%|██▌       | 4000/16000 [00:06\u003c00:17, 677.51 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153815207,"data":"Tokenizing:  31%|███▏      | 5000/16000 [00:07\u003c00:15, 718.26 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153819797,"data":"Tokenizing:  38%|███▊      | 6000/16000 [00:08\u003c00:13, 745.65 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153823943,"data":"Tokenizing:  44%|████▍     | 7000/16000 [00:10\u003c00:11, 757.16 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153828156,"data":"Tokenizing:  50%|█████     | 8000/16000 [00:11\u003c00:10, 767.17 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153832288,"data":"Tokenizing:  56%|█████▋    | 9000/16000 [00:12\u003c00:09, 760.85 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153836452,"data":"Tokenizing:  62%|██████▎   | 10000/16000 [00:14\u003c00:07, 764.83 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153840693,"data":"Tokenizing:  69%|██████▉   | 11000/16000 [00:15\u003c00:06, 763.98 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153844896,"data":"Tokenizing:  75%|███████▌  | 12000/16000 [00:16\u003c00:05, 755.18 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.15384906,"data":"Tokenizing:  81%|████████▏ | 13000/16000 [00:18\u003c00:03, 756.76 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153853321,"data":"Tokenizing:  88%|████████▊ | 14000/16000 [00:19\u003c00:02, 764.28 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153857648,"data":"Tokenizing:  94%|█████████▍| 15000/16000 [00:20\u003c00:01, 745.87 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153861868,"data":"Tokenizing: 100%|██████████| 16000/16000 [00:22\u003c00:00, 758.09 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.153866029,"data":"Tokenizing: 100%|██████████| 16000/16000 [00:22\u003c00:00, 721.21 examples/s]\n"}
+,{"stream_name":"stdout","time":1973.15387066,"data":"[train] 16000 examples | 2 GPU(s) | eff_batch=32 | 500 steps | checkpoint every 100 steps (~20%)\n"}
+,{"stream_name":"stdout","time":1973.153879352,"data":"[train] Checkpoints will upload to HF Hub: mateo0093/le-gros-chaton-qwen-sft-ckpt\n"}
+,{"stream_name":"stdout","time":1973.153883292,"data":"[train] Starting SFT (1 epoch(s), 0.0002)...\n"}
+,{"stream_name":"stdout","time":1973.1538964,"data":"\n"}
+,{"stream_name":"stdout","time":1973.153900912,"data":"  0%|          | 0/500 [00:00\u003c?, ?it/s]huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...\n"}
+,{"stream_name":"stdout","time":1973.153905956,"data":"To disable this warning, you can either:\n"}
+,{"stream_name":"stdout","time":1973.15391066,"data":"\t- Avoid using `tokenizers` before the fork if possible\n"}
+,{"stream_name":"stdout","time":1973.153914779,"data":"\t- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)\n"}
+,{"stream_name":"stdout","time":1973.153918932,"data":"huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...\n"}
+,{"stream_name":"stdout","time":1973.153923327,"data":"To disable this warning, you can either:\n"}
+,{"stream_name":"stdout","time":1973.153927263,"data":"\t- Avoid using `tokenizers` before the fork if possible\n"}
+,{"stream_name":"stdout","time":1973.153935397,"data":"\t- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)\n"}
+,{"stream_name":"stdout","time":1973.153939541,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stdout","time":1973.153943529,"data":"  File \"/kaggle/working/le-gros-chaton/train_qwen.py\", line 627, in \u003cmodule\u003e\n"}
+,{"stream_name":"stdout","time":1973.153947963,"data":"    main()\n"}
+,{"stream_name":"stdout","time":1973.153951819,"data":"  File \"/kaggle/working/le-gros-chaton/train_qwen.py\", line 574, in main\n"}
+,{"stream_name":"stdout","time":1973.153955903,"data":"    sft_path = train_sft(\n"}
+,{"stream_name":"stdout","time":1973.153971228,"data":"               ^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154020923,"data":"  File \"/kaggle/working/le-gros-chaton/train_qwen.py\", line 328, in train_sft\n"}
+,{"stream_name":"stdout","time":1973.154029104,"data":"    trainer.train(resume_from_checkpoint=resume_from_checkpoint)\n"}
+,{"stream_name":"stdout","time":1973.154032788,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1437, in train\n"}
+,{"stream_name":"stdout","time":1973.154036604,"data":"    return inner_training_loop(\n"}
+,{"stream_name":"stdout","time":1973.154040098,"data":"           ^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154043637,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1519, in _inner_training_loop\n"}
+,{"stream_name":"stdout","time":1973.154051238,"data":"    self._run_epoch(\n"}
+,{"stream_name":"stdout","time":1973.154054008,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1747, in _run_epoch\n"}
+,{"stream_name":"stdout","time":1973.154077173,"data":"    tr_loss_step = self.training_step(model, inputs, num_items_in_batch)\n"}
+,{"stream_name":"stdout","time":1973.154081283,"data":"                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154085496,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1919, in training_step\n"}
+,{"stream_name":"stdout","time":1973.154089499,"data":"    loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)\n"}
+,{"stream_name":"stdout","time":1973.154093837,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154098153,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/trainer.py\", line 1993, in compute_loss\n"}
+,{"stream_name":"stdout","time":1973.154101736,"data":"    outputs = model(**inputs)\n"}
+,{"stream_name":"stdout","time":1973.154105034,"data":"              ^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154108332,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1776, in _wrapped_call_impl\n"}
+,{"stream_name":"stdout","time":1973.154113704,"data":"    return self._call_impl(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154117026,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154120297,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1787, in _call_impl\n"}
+,{"stream_name":"stdout","time":1973.154123815,"data":"    return forward_call(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.15412704,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154130347,"data":"  File \"/usr/local/lib/python3.12/dist-packages/accelerate/utils/operations.py\", line 823, in forward\n"}
+,{"stream_name":"stdout","time":1973.15413405,"data":"    return model_forward(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154141311,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154144632,"data":"  File \"/usr/local/lib/python3.12/dist-packages/accelerate/utils/operations.py\", line 811, in __call__\n"}
+,{"stream_name":"stdout","time":1973.15414831,"data":"    return convert_to_fp32(self.model_forward(*args, **kwargs))\n"}
+,{"stream_name":"stdout","time":1973.154155423,"data":"                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154157814,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/amp/autocast_mode.py\", line 44, in decorate_autocast\n"}
+,{"stream_name":"stdout","time":1973.154160657,"data":"    return func(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154171631,"data":"           ^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154175922,"data":"  File \"/usr/local/lib/python3.12/dist-packages/peft/peft_model.py\", line 1993, in forward\n"}
+,{"stream_name":"stdout","time":1973.154180271,"data":"    return self.base_model(\n"}
+,{"stream_name":"stdout","time":1973.154184166,"data":"           ^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154187899,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1776, in _wrapped_call_impl\n"}
+,{"stream_name":"stdout","time":1973.154191589,"data":"    return self._call_impl(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154194829,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154198102,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py\", line 1787, in _call_impl\n"}
+,{"stream_name":"stdout","time":1973.154201586,"data":"    return forward_call(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154204861,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154208155,"data":"  File \"/usr/local/lib/python3.12/dist-packages/peft/tuners/tuners_utils.py\", line 330, in forward\n"}
+,{"stream_name":"stdout","time":1973.154211705,"data":"    return self.model.forward(*args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154214973,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154218283,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/utils/generic.py\", line 911, in wrapper\n"}
+,{"stream_name":"stdout","time":1973.154221828,"data":"    output = func(self, *args, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154225087,"data":"             ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154229271,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/models/qwen3_5/modeling_qwen3_5.py\", line 1671, in forward\n"}
+,{"stream_name":"stdout","time":1973.154232966,"data":"    loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154236508,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154240154,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/loss/loss_utils.py\", line 70, in ForCausalLMLoss\n"}
+,{"stream_name":"stdout","time":1973.154247014,"data":"    loss = fixed_cross_entropy(logits, shift_labels, num_items_in_batch, ignore_index, **kwargs)\n"}
+,{"stream_name":"stdout","time":1973.154249491,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.154252203,"data":"  File \"/usr/local/lib/python3.12/dist-packages/transformers/loss/loss_utils.py\", line 40, in fixed_cross_entropy\n"}
+,{"stream_name":"stdout","time":1973.154267251,"data":"    loss = nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction=reduction)\n"}
+,{"stream_name":"stdout","time":1973.154271679,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.15427592,"data":"  File \"/usr/local/lib/python3.12/dist-packages/torch/nn/functional.py\", line 3504, in cross_entropy\n"}
+,{"stream_name":"stdout","time":1973.154280071,"data":"    return torch._C._nn.cross_entropy_loss(\n"}
+,{"stream_name":"stdout","time":1973.154283497,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stdout","time":1973.15428976,"data":"torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1.89 GiB. GPU 0 has a total capacity of 14.56 GiB of which 1.09 GiB is free. Including non-PyTorch memory, this process has 13.47 GiB memory in use. Of the allocated memory 13.15 GiB is allocated by PyTorch, and 190.04 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)\n"}
+,{"stream_name":"stdout","time":1973.154297032,"data":"\n"}
+,{"stream_name":"stdout","time":1973.154300569,"data":"  0%|          | 0/500 [00:06\u003c?, ?it/s]\n"}
+,{"stream_name":"stdout","time":1973.154304271,"data":"TRAIN_RC=1\n"}
+,{"stream_name":"stdout","time":1973.154307959,"data":"EXCEPTION: RuntimeError('train failed rc=1')\n"}
+,{"stream_name":"stdout","time":1973.154314329,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stdout","time":1973.154317922,"data":"  File \"/kaggle/src/script.py\", line 151, in \u003cmodule\u003e\n"}
+,{"stream_name":"stdout","time":1973.154321433,"data":"    raise RuntimeError(f\"train failed rc={rc}\")\n"}
+,{"stream_name":"stdout","time":1973.154324792,"data":"RuntimeError: train failed rc=1\n"}
+,{"stream_name":"stdout","time":1973.154328129,"data":"\n"}
+,{"stream_name":"stderr","time":1973.154996551,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":1973.155010116,"data":"  File \"/kaggle/src/script.py\", line 151, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":1973.155232396,"data":"    raise RuntimeError(f\"train failed rc={rc}\")\n"}
+,{"stream_name":"stderr","time":1973.155240527,"data":"RuntimeError: train failed rc=1\n"}
+,{"stream_name":"stderr","time":1975.34514803,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":1975.345181926,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":1975.595002209,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":1975.595044563,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":1976.21111465,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":1977.422179425,"data":"[NbConvertApp] Writing 300078 bytes to __results__.html\n"}
+]

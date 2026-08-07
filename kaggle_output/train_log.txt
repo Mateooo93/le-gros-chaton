@@ -1,0 +1,296 @@
+=== Installing deps ===
+deps installed (preinstalled torch + transformers 5.14.1 + tokenizers 0.22.1)
+=== Cloning repo ===
+repo cloned
+HF_TOKEN set: True
+=== Training (phase=sft, limit=16000) ===
+CMD: /usr/bin/python3 -u train_qwen.py --sft-only --limit 16000 --batch-size 2 --adapter mateo0093/le-gros-chaton-qwen
+=== train_qwen.py output tail ===
+[train] === Le Gros Chaton - Coding Agent Training ===
+[train] Model: Qwen/Qwen3.5-9B
+[train] Dataset: Nexlab/fable5-agentic-coding-sft
+[train] Output: qwen_coding_agent
+[train] Loading Qwen/Qwen3.5-9B...
+[train] model_type=qwen3_5 text_model_type=qwen3_5_text layers=32
+
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]
+Fetching 4 files:  25%|██▌       | 1/4 [14:32<43:36, 872.28s/it]
+Fetching 4 files:  50%|█████     | 2/4 [14:39<12:07, 363.69s/it]
+Fetching 4 files:  75%|███████▌  | 3/4 [30:20<10:27, 627.30s/it]
+Fetching 4 files: 100%|██████████| 4/4 [30:20<00:00, 455.24s/it]
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+
+Loading weights:   0%|          | 0/427 [00:00<?, ?it/s]
+Loading weights:   0%|          | 1/427 [00:08<56:57,  8.02s/it]
+Loading weights:   0%|          | 2/427 [00:08<27:08,  3.83s/it]
+Loading weights:   2%|▏         | 7/427 [00:09<05:22,  1.30it/s]
+Loading weights:   2%|▏         | 9/427 [00:09<03:51,  1.80it/s]
+Loading weights:   3%|▎         | 11/427 [00:09<02:47,  2.48it/s]
+Loading weights:   3%|▎         | 13/427 [00:09<02:29,  2.77it/s]
+Loading weights:   3%|▎         | 14/427 [00:10<02:32,  2.72it/s]
+Loading weights:   4%|▎         | 15/427 [00:10<02:34,  2.67it/s]
+Loading weights:   5%|▌         | 23/427 [00:11<00:54,  7.38it/s]
+Loading weights:   6%|▌         | 25/427 [00:11<00:48,  8.24it/s]
+Loading weights:   6%|▋         | 27/427 [00:11<01:01,  6.48it/s]
+Loading weights:   7%|▋         | 29/427 [00:12<01:25,  4.63it/s]
+Loading weights:   9%|▉         | 38/427 [00:12<00:36, 10.64it/s]
+Loading weights:  10%|▉         | 41/427 [00:12<00:32, 11.72it/s]
+Loading weights:  11%|█         | 46/427 [00:12<00:24, 15.48it/s]
+Loading weights:  12%|█▏        | 51/427 [00:13<00:19, 19.63it/s]
+Loading weights:  13%|█▎        | 55/427 [00:13<00:16, 22.50it/s]
+Loading weights:  15%|█▍        | 63/427 [00:13<00:11, 31.23it/s]
+Loading weights:  16%|█▌        | 68/427 [00:13<00:12, 27.77it/s]
+Loading weights:  18%|█▊        | 77/427 [00:13<00:08, 39.15it/s]
+Loading weights:  19%|█▉        | 83/427 [00:13<00:09, 35.59it/s]
+Loading weights:  22%|██▏       | 93/427 [00:14<00:08, 39.74it/s]
+Loading weights:  23%|██▎       | 99/427 [00:14<00:07, 41.67it/s]
+Loading weights:  25%|██▍       | 105/427 [00:14<00:07, 41.02it/s]
+Loading weights:  27%|██▋       | 116/427 [00:14<00:06, 48.78it/s]
+Loading weights:  29%|██▊       | 122/427 [00:14<00:07, 40.30it/s]
+Loading weights:  31%|███       | 132/427 [00:14<00:06, 42.79it/s]
+Loading weights:  33%|███▎      | 143/427 [00:15<00:06, 41.46it/s]
+Loading weights:  35%|███▍      | 148/427 [00:16<00:16, 16.50it/s]
+Loading weights:  36%|███▌      | 152/427 [00:17<00:23, 11.68it/s]
+Loading weights:  36%|███▋      | 155/427 [00:17<00:31,  8.70it/s]
+Loading weights:  37%|███▋      | 158/427 [00:18<00:27,  9.66it/s]
+Loading weights:  37%|███▋      | 160/427 [00:18<00:28,  9.26it/s]
+Loading weights:  39%|███▉      | 168/427 [00:18<00:19, 13.27it/s]
+Loading weights:  40%|███▉      | 170/427 [00:18<00:19, 13.50it/s]
+Loading weights:  40%|████      | 172/427 [00:19<00:27,  9.42it/s]
+Loading weights:  41%|████      | 174/427 [00:20<00:40,  6.19it/s]
+Loading weights:  43%|████▎     | 182/427 [00:20<00:22, 10.71it/s]
+Loading weights:  43%|████▎     | 184/427 [00:20<00:21, 11.27it/s]
+Loading weights:  44%|████▎     | 186/427 [00:20<00:23, 10.18it/s]
+Loading weights:  46%|████▌     | 197/427 [00:20<00:11, 20.62it/s]
+Loading weights:  47%|████▋     | 201/427 [00:21<00:12, 18.76it/s]
+Loading weights:  48%|████▊     | 205/427 [00:21<00:11, 19.96it/s]
+Loading weights:  49%|████▊     | 208/427 [00:21<00:10, 20.24it/s]
+Loading weights:  50%|████▉     | 213/427 [00:21<00:09, 23.72it/s]
+Loading weights:  52%|█████▏    | 222/427 [00:21<00:06, 33.39it/s]
+Loading weights:  53%|█████▎    | 226/427 [00:22<00:15, 13.28it/s]
+Loading weights:  54%|█████▎    | 229/427 [00:23<00:17, 11.53it/s]
+Loading weights:  55%|█████▌    | 236/427 [00:23<00:11, 16.71it/s]
+Loading weights:  56%|█████▌    | 240/427 [00:24<00:19,  9.78it/s]
+Loading weights:  57%|█████▋    | 243/427 [00:24<00:20,  9.19it/s]
+Loading weights:  59%|█████▊    | 250/427 [00:24<00:12, 13.88it/s]
+Loading weights:  59%|█████▉    | 253/427 [00:25<00:16, 10.73it/s]
+Loading weights:  60%|█████▉    | 256/427 [00:25<00:22,  7.58it/s]
+Loading weights:  60%|██████    | 258/427 [00:26<00:24,  6.95it/s]
+Loading weights:  61%|██████    | 260/427 [00:26<00:21,  7.73it/s]
+Loading weights:  62%|██████▏   | 266/427 [00:26<00:12, 12.58it/s]
+Loading weights:  64%|██████▍   | 275/427 [00:26<00:07, 21.03it/s]
+Loading weights:  65%|██████▌   | 279/427 [00:27<00:07, 18.73it/s]
+Loading weights:  67%|██████▋   | 288/427 [00:27<00:06, 22.97it/s]
+Loading weights:  68%|██████▊   | 292/427 [00:28<00:09, 14.23it/s]
+Loading weights:  69%|██████▉   | 295/427 [00:28<00:14,  9.30it/s]
+Loading weights:  71%|███████   | 303/427 [00:28<00:08, 14.40it/s]
+Loading weights:  72%|███████▏  | 307/427 [00:29<00:13,  9.15it/s]
+Loading weights:  73%|███████▎  | 310/427 [00:30<00:14,  8.27it/s]
+Loading weights:  73%|███████▎  | 312/427 [00:31<00:18,  6.31it/s]
+Loading weights:  74%|███████▎  | 314/427 [00:31<00:18,  6.02it/s]
+Loading weights:  74%|███████▍  | 317/427 [00:31<00:14,  7.44it/s]
+Loading weights:  77%|███████▋  | 327/427 [00:31<00:06, 15.78it/s]
+Loading weights:  78%|███████▊  | 331/427 [00:32<00:06, 15.63it/s]
+Loading weights:  78%|███████▊  | 335/427 [00:32<00:05, 18.23it/s]
+Loading weights:  80%|████████  | 342/427 [00:32<00:03, 25.01it/s]
+Loading weights:  81%|████████  | 346/427 [00:32<00:03, 21.74it/s]
+Loading weights:  83%|████████▎ | 355/427 [00:32<00:02, 30.46it/s]
+Loading weights:  84%|████████▍ | 360/427 [00:33<00:02, 23.68it/s]
+Loading weights:  85%|████████▌ | 364/427 [00:33<00:02, 23.69it/s]
+Loading weights:  86%|████████▌ | 368/427 [00:34<00:04, 12.68it/s]
+Loading weights:  87%|████████▋ | 371/427 [00:34<00:04, 13.56it/s]
+Loading weights:  89%|████████▉ | 380/427 [00:34<00:02, 18.25it/s]
+Loading weights:  90%|████████▉ | 383/427 [00:34<00:02, 16.42it/s]
+Loading weights:  90%|█████████ | 386/427 [00:34<00:02, 15.65it/s]
+Loading weights:  92%|█████████▏| 394/427 [00:35<00:01, 21.68it/s]
+Loading weights:  93%|█████████▎| 397/427 [00:35<00:01, 18.50it/s]
+Loading weights:  94%|█████████▎| 400/427 [00:35<00:01, 16.48it/s]
+Loading weights:  96%|█████████▌| 409/427 [00:35<00:00, 25.85it/s]
+Loading weights:  97%|█████████▋| 413/427 [00:36<00:01, 11.98it/s]
+Loading weights:  97%|█████████▋| 416/427 [00:37<00:01, 10.68it/s]
+Loading weights:  98%|█████████▊| 418/427 [00:37<00:01,  7.01it/s]
+Loading weights:  98%|█████████▊| 420/427 [00:38<00:01,  6.51it/s]
+Loading weights:  99%|█████████▉| 423/427 [00:38<00:00,  7.99it/s]
+Loading weights: 100%|██████████| 427/427 [00:38<00:00, 11.07it/s]
+trainable params: 43,278,336 || all params: 8,997,081,600 || trainable%: 0.4810
+
+Fetching 9 files:   0%|          | 0/9 [00:00<?, ?it/s]
+Fetching 9 files:  11%|█         | 1/9 [00:00<00:01,  6.07it/s]
+Fetching 9 files:  44%|████▍     | 4/9 [00:03<00:04,  1.04it/s]
+Fetching 9 files: 100%|██████████| 9/9 [00:03<00:00,  2.49it/s]
+[train] Loading SFT adapter from /root/.cache/huggingface/hub/models--mateo0093--le-gros-chaton-qwen/snapshots/efd519a52c6e6ee6a456571eee615599f0c310d0
+trainable params: 43,278,336 || all params: 8,997,081,600 || trainable%: 0.4810
+[train] Loaded in 1874.0s
+[train] GPU 0: 0.0GB / 15.6GB used
+[train] GPU 1: 7.8GB / 15.6GB used
+
+==================================================
+[train] PHASE 1: SFT on Nexlab/fable5-agentic-coding-sft
+==================================================
+[train] Loading Fable5 dataset (160k rows)...
+
+Generating train split:   0%|          | 0/159972 [00:00<?, ? examples/s]
+Generating train split:   0%|          | 43/159972 [00:00<15:31, 171.75 examples/s]
+Generating train split:   0%|          | 230/159972 [00:00<04:13, 631.18 examples/s]
+Generating train split:   2%|▏         | 3188/159972 [00:00<00:21, 7455.88 examples/s]
+Generating train split:   4%|▍         | 6263/159972 [00:00<00:13, 11570.64 examples/s]
+Generating train split:   6%|▌         | 9368/159972 [00:00<00:10, 13979.18 examples/s]
+Generating train split:   8%|▊         | 12308/159972 [00:01<00:09, 15146.33 examples/s]
+Generating train split:  10%|▉         | 15267/159972 [00:01<00:09, 15836.91 examples/s]
+Generating train split:  11%|█▏        | 18273/159972 [00:01<00:08, 16715.97 examples/s]
+Generating train split:  13%|█▎        | 21176/159972 [00:01<00:08, 17151.47 examples/s]
+Generating train split:  15%|█▌        | 24232/159972 [00:01<00:07, 17700.71 examples/s]
+Generating train split:  17%|█▋        | 27108/159972 [00:01<00:07, 17774.53 examples/s]
+Generating train split:  19%|█▊        | 29644/159972 [00:02<00:07, 17282.76 examples/s]
+Generating train split:  20%|██        | 32669/159972 [00:02<00:07, 17738.48 examples/s]
+Generating train split:  22%|██▏       | 35629/159972 [00:02<00:07, 17672.66 examples/s]
+Generating train split:  24%|██▍       | 38289/159972 [00:02<00:10, 11847.28 examples/s]
+Generating train split:  26%|██▌       | 41237/159972 [00:02<00:08, 13239.53 examples/s]
+Generating train split:  28%|██▊       | 44192/159972 [00:03<00:08, 14428.78 examples/s]
+Generating train split:  29%|██▉       | 47164/159972 [00:03<00:07, 15495.11 examples/s]
+Generating train split:  31%|███▏      | 50049/159972 [00:03<00:06, 15912.56 examples/s]
+Generating train split:  33%|███▎      | 53097/159972 [00:03<00:06, 16667.09 examples/s]
+Generating train split:  35%|███▌      | 56099/159972 [00:03<00:06, 16228.82 examples/s]
+Generating train split:  37%|███▋      | 59039/159972 [00:03<00:06, 16731.13 examples/s]
+Generating train split:  38%|███▊      | 61588/159972 [00:04<00:06, 16345.41 examples/s]
+Generating train split:  40%|████      | 64486/159972 [00:04<00:05, 16610.91 examples/s]
+Generating train split:  42%|████▏     | 67444/159972 [00:04<00:05, 16765.33 examples/s]
+Generating train split:  44%|████▍     | 70471/159972 [00:04<00:05, 16935.30 examples/s]
+Generating train split:  46%|████▌     | 73372/159972 [00:04<00:05, 16976.66 examples/s]
+Generating train split:  48%|████▊     | 76371/159972 [00:05<00:04, 17085.98 examples/s]
+Generating train split:  50%|████▉     | 79387/159972 [00:05<00:04, 17220.53 examples/s]
+Generating train split:  52%|█████▏    | 82387/159972 [00:05<00:06, 11679.47 examples/s]
+Generating train split:  53%|█████▎    | 85343/159972 [00:05<00:05, 12948.36 examples/s]
+Generating train split:  55%|█████▌    | 88341/159972 [00:05<00:05, 13966.56 examples/s]
+Generating train split:  57%|█████▋    | 91225/159972 [00:06<00:04, 14445.64 examples/s]
+Generating train split:  59%|█████▉    | 94295/159972 [00:06<00:04, 15466.11 examples/s]
+Generating train split:  61%|██████    | 97343/159972 [00:06<00:03, 16356.45 examples/s]
+Generating train split:  63%|██████▎   | 100321/159972 [00:06<00:03, 16874.22 examples/s]
+Generating train split:  65%|██████▍   | 103341/159972 [00:06<00:03, 17401.43 examples/s]
+Generating train split:  66%|██████▋   | 106322/159972 [00:06<00:03, 17633.09 examples/s]
+Generating train split:  68%|██████▊   | 109323/159972 [00:07<00:02, 17857.17 examples/s]
+Generating train split:  70%|███████   | 112277/159972 [00:07<00:02, 17943.58 examples/s]
+Generating train split:  72%|███████▏  | 115278/159972 [00:07<00:02, 18102.51 examples/s]
+Generating train split:  74%|███████▍  | 118229/159972 [00:07<00:02, 18159.29 examples/s]
+Generating train split:  76%|███████▌  | 121062/159972 [00:07<00:02, 17951.83 examples/s]
+Generating train split:  78%|███████▊  | 123979/159972 [00:08<00:02, 12191.74 examples/s]
+Generating train split:  79%|███████▉  | 126884/159972 [00:08<00:02, 13507.03 examples/s]
+Generating train split:  81%|████████  | 129837/159972 [00:08<00:02, 14648.14 examples/s]
+Generating train split:  83%|████████▎ | 132844/159972 [00:08<00:01, 15617.32 examples/s]
+Generating train split:  85%|████████▍ | 135820/159972 [00:08<00:01, 16357.79 examples/s]
+Generating train split:  87%|████████▋ | 138862/159972 [00:09<00:01, 16879.99 examples/s]
+Generating train split:  89%|████████▊ | 141634/159972 [00:09<00:01, 16936.35 examples/s]
+Generating train split:  90%|█████████ | 144468/159972 [00:09<00:00, 17143.77 examples/s]
+Generating train split:  92%|█████████▏| 147567/159972 [00:09<00:00, 17654.85 examples/s]
+Generating train split:  94%|█████████▍| 150486/159972 [00:09<00:00, 17783.68 examples/s]
+Generating train split:  96%|█████████▌| 153343/159972 [00:09<00:00, 17789.58 examples/s]
+Generating train split:  98%|█████████▊| 156332/159972 [00:09<00:00, 18015.18 examples/s]
+Generating train split: 100%|█████████▉| 159337/159972 [00:10<00:00, 18121.50 examples/s]
+Generating train split: 100%|██████████| 159972/159972 [00:10<00:00, 15694.59 examples/s]
+[train] Loaded 16000 examples (rows 0-16000 of 159972)
+[train] No agent_traces.jsonl found — skipping
+
+Tokenizing:   0%|          | 0/16000 [00:00<?, ? examples/s]
+Tokenizing:   6%|▋         | 1000/16000 [00:02<00:38, 388.98 examples/s]
+Tokenizing:  12%|█▎        | 2000/16000 [00:03<00:25, 544.38 examples/s]
+Tokenizing:  19%|█▉        | 3000/16000 [00:05<00:20, 626.16 examples/s]
+Tokenizing:  25%|██▌       | 4000/16000 [00:06<00:17, 677.51 examples/s]
+Tokenizing:  31%|███▏      | 5000/16000 [00:07<00:15, 718.26 examples/s]
+Tokenizing:  38%|███▊      | 6000/16000 [00:08<00:13, 745.65 examples/s]
+Tokenizing:  44%|████▍     | 7000/16000 [00:10<00:11, 757.16 examples/s]
+Tokenizing:  50%|█████     | 8000/16000 [00:11<00:10, 767.17 examples/s]
+Tokenizing:  56%|█████▋    | 9000/16000 [00:12<00:09, 760.85 examples/s]
+Tokenizing:  62%|██████▎   | 10000/16000 [00:14<00:07, 764.83 examples/s]
+Tokenizing:  69%|██████▉   | 11000/16000 [00:15<00:06, 763.98 examples/s]
+Tokenizing:  75%|███████▌  | 12000/16000 [00:16<00:05, 755.18 examples/s]
+Tokenizing:  81%|████████▏ | 13000/16000 [00:18<00:03, 756.76 examples/s]
+Tokenizing:  88%|████████▊ | 14000/16000 [00:19<00:02, 764.28 examples/s]
+Tokenizing:  94%|█████████▍| 15000/16000 [00:20<00:01, 745.87 examples/s]
+Tokenizing: 100%|██████████| 16000/16000 [00:22<00:00, 758.09 examples/s]
+Tokenizing: 100%|██████████| 16000/16000 [00:22<00:00, 721.21 examples/s]
+[train] 16000 examples | 2 GPU(s) | eff_batch=32 | 500 steps | checkpoint every 100 steps (~20%)
+[train] Checkpoints will upload to HF Hub: mateo0093/le-gros-chaton-qwen-sft-ckpt
+[train] Starting SFT (1 epoch(s), 0.0002)...
+
+  0%|          | 0/500 [00:00<?, ?it/s]huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+	- Avoid using `tokenizers` before the fork if possible
+	- Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+Traceback (most recent call last):
+  File "/kaggle/working/le-gros-chaton/train_qwen.py", line 627, in <module>
+    main()
+  File "/kaggle/working/le-gros-chaton/train_qwen.py", line 574, in main
+    sft_path = train_sft(
+               ^^^^^^^^^^
+  File "/kaggle/working/le-gros-chaton/train_qwen.py", line 328, in train_sft
+    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+  File "/usr/local/lib/python3.12/dist-packages/transformers/trainer.py", line 1437, in train
+    return inner_training_loop(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/transformers/trainer.py", line 1519, in _inner_training_loop
+    self._run_epoch(
+  File "/usr/local/lib/python3.12/dist-packages/transformers/trainer.py", line 1747, in _run_epoch
+    tr_loss_step = self.training_step(model, inputs, num_items_in_batch)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/transformers/trainer.py", line 1919, in training_step
+    loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/transformers/trainer.py", line 1993, in compute_loss
+    outputs = model(**inputs)
+              ^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/accelerate/utils/operations.py", line 823, in forward
+    return model_forward(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/accelerate/utils/operations.py", line 811, in __call__
+    return convert_to_fp32(self.model_forward(*args, **kwargs))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/amp/autocast_mode.py", line 44, in decorate_autocast
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/peft/peft_model.py", line 1993, in forward
+    return self.base_model(
+           ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1776, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1787, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/peft/tuners/tuners_utils.py", line 330, in forward
+    return self.model.forward(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/transformers/utils/generic.py", line 911, in wrapper
+    output = func(self, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/transformers/models/qwen3_5/modeling_qwen3_5.py", line 1671, in forward
+    loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/transformers/loss/loss_utils.py", line 70, in ForCausalLMLoss
+    loss = fixed_cross_entropy(logits, shift_labels, num_items_in_batch, ignore_index, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/transformers/loss/loss_utils.py", line 40, in fixed_cross_entropy
+    loss = nn.functional.cross_entropy(source, target, ignore_index=ignore_index, reduction=reduction)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/nn/functional.py", line 3504, in cross_entropy
+    return torch._C._nn.cross_entropy_loss(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1.89 GiB. GPU 0 has a total capacity of 14.56 GiB of which 1.09 GiB is free. Including non-PyTorch memory, this process has 13.47 GiB memory in use. Of the allocated memory 13.15 GiB is allocated by PyTorch, and 190.04 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+
+  0%|          | 0/500 [00:06<?, ?it/s]
+TRAIN_RC=1
+EXCEPTION: RuntimeError('train failed rc=1')
+Traceback (most recent call last):
+  File "/kaggle/src/script.py", line 151, in <module>
+    raise RuntimeError(f"train failed rc={rc}")
+RuntimeError: train failed rc=1
+
