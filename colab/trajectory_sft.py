@@ -184,26 +184,43 @@ def make_tokenize_fn(tokenizer, max_length: int):
 # --------------------------------------------------------------------------
 def load_model_and_tokenizer(model_name: str, adapter: str):
     import torch
+    import os
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from peft import PeftModel
 
+    device_map = os.environ.get("DEVICE_MAP", "auto").strip()
+    max_memory_raw = os.environ.get("MAX_MEMORY", "").strip()
+    max_memory = None
+    if max_memory_raw:
+        try:
+            max_memory = json.loads(max_memory_raw)
+            # transformers wants integer device keys for GPUs ("0" -> 0)
+            max_memory = {int(k) if str(k).lstrip("-").isdigit() else k: v
+                          for k, v in max_memory.items()}
+        except Exception as e:
+            log(f"WARN: MAX_MEMORY not valid JSON ({e}); ignoring")
     quant = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_compute_dtype=torch.float16,
         bnb_4bit_use_double_quant=True,
         bnb_4bit_quant_type="nf4",
+        llm_int8_enable_fp32_cpu_offload=True,
     )
-    log(f"Loading base model '{model_name}' (4-bit nf4, fp16 compute) ...")
+    log(f"Loading base model '{model_name}' (4-bit nf4, fp16 compute, device_map={device_map}, max_memory={max_memory}) ...")
     tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         quantization_config=quant,
-        device_map="auto",
+        device_map=device_map,
+        max_memory=max_memory,
         trust_remote_code=True,
         torch_dtype=torch.float16,
     )
     log(f"Attaching 91% Fable5 SFT adapter '{adapter}' ...")
-    model = PeftModel.from_pretrained(model, adapter)
+    if adapter and adapter.strip().lower() not in ("none", "null", ""):
+        model = PeftModel.from_pretrained(model, adapter)
+    else:
+        log("SKIP adapter attach (ADAPTER=none) — training on quantized base directly")
     log(f"Model + SFT adapter loaded | VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
     return model, tok
 
@@ -330,6 +347,27 @@ def main() -> None:
             "sure bitsandbytes is installed and CUDA is available "
             "(`pip install -U bitsandbytes`)")
 
+    # 4-bit models are frozen by definition — the Trainer refuses pure
+    # quantized models. Attach a fresh LoRA so the trajectory SFT has
+    # trainable parameters (and a trainable adapter to save at the end).
+    import torch as _t
+    from peft import LoraConfig, get_peft_model
+    lora_r = int(os.environ.get("LORA_R", "16"))
+    log(f"Attaching fresh LoRA (r={lora_r}, alpha={2 * lora_r}, q/k/v/o/gate/up/down) ...")
+    lora_cfg = LoraConfig(
+        r=lora_r,
+        lora_alpha=2 * lora_r,
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                        "gate_proj", "up_proj", "down_proj"],
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+    model = get_peft_model(model, lora_cfg)
+    model.gradient_checkpointing_enable()
+    model.print_trainable_parameters()
+    log(f"LoRA attached | VRAM: {_t.cuda.memory_allocated() / 1e9:.2f} GB")
+
     # --- 4. Tokenize trajectories (assistant-only loss) --------------------
     from datasets import Dataset
     from transformers import DataCollatorForSeq2Seq, Trainer, TrainingArguments
@@ -340,9 +378,11 @@ def main() -> None:
         remove_columns=ds.column_names, desc="Tokenizing",
     )
     first = tokenized[0]
-    n_train = int((first["labels"] != -100).sum())
+    import torch as _t
+    first_ids = _t.as_tensor(first["input_ids"])
+    n_train = int((_t.as_tensor(first["labels"]) != -100).sum())
     log(f"Tokenized {len(tokenized)} trajectories | first trace: "
-        f"{first['input_ids'].shape[0]} tokens, {n_train} trainable (assistant)")
+        f"{first_ids.shape[0]} tokens, {n_train} trainable (assistant)")
 
     # --- 5. Trajectory SFT (same recipe as the notebook) -------------------
     eff_batch = BATCH * 8  # gradient_accumulation_steps
