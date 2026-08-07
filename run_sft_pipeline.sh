@@ -41,6 +41,8 @@ HF_TOKEN="${HF_TOKEN:?set HF_TOKEN}"
 : "${DEVICE_MAP:=auto}"
 : "${MAX_MEMORY:=}"
 : "${OUT_DIR:=qwen_traj_sft}"
+: "${MERGE_OUT_DIR:=qwen_merged}"
+: "${MERGE_OUT_REPO:=mateo0093/le-gros-chaton-qwen-merged}"
 
 PY=".venv/bin/python"
 [ -x "$PY" ] || PY="python3"
@@ -87,15 +89,29 @@ if [ "$MODE" = "--sft-only" ]; then
   exit 0
 fi
 
-# ---- 4. Terminal-Bench eval of the new adapter ---------------------------
-log "4/5 TB 2.0 eval (adapter=$OUT_REPO)"
+# ---- 3.5 Merge EVERYTHING into one full checkpoint ------------------------
+# The SFT checkpoint contains only the trajectory LoRA; the Fable5 layer
+# lives in the base adapter. Downstream consumers (TB eval, RLVR) load a
+# single model — so fuse base+Fable+traj into qwen_merged/ and upload it.
+log "3.5/5 merging base + Fable5 + trajectory adapter -> qwen_merged/"
+BASE_MODEL="$MODEL_NAME" \
+FABLE_MODEL="$ADAPTER" \
+TRAJ_ADAPTER="$OUT_DIR" \
+OUT_DIR="$MERGE_OUT_DIR" \
+MERGE_OUT_REPO="$MERGE_OUT_REPO" \
+HF_TOKEN="$HF_TOKEN" $PY merge_sft.py
+log "merged -> $MERGE_OUT_DIR ($MERGE_OUT_REPO)"
+
+# ---- 4. Terminal-Bench eval of the MERGED model ---------------------------
+log "4/5 TB 2.0 eval (merged model=$MERGE_OUT_DIR)"
 $PY eval/tbench_eval.py \
-  --local-model "$MODEL_NAME" --local-ckpt "$OUT_REPO" --adapter traj_sft \
+  --local-model "$MERGE_OUT_DIR" --four-bit --adapter traj_sft \
   2>/dev/null \
   || log "eval needs a served model; run: python modal_serve_qwen.py + tbench_eval.py --server <url>"
 
-# ---- 5. RLVR with diversity ----------------------------------------------
+# ---- 5. RLVR with diversity on the MERGED base ----------------------------
 log "5/5 RLVR (diversity on, novelty bonus 0.2)"
-$PY rlvr_qwen.py --n 8 --n-steps 120 --limit 19 --novelty-bonus 0.2 \
+MODEL_NAME="$MERGE_OUT_DIR" ADAPTER=none \
+  $PY rlvr_qwen.py --n 8 --n-steps 120 --limit 19 --novelty-bonus 0.2 \
   --out qwen_rlvr 2>/dev/null || log "RLVR needs GPU; rerun when available"
 log "pipeline complete"
