@@ -35,10 +35,16 @@ if PROJ_ROOT not in sys.path:
 
 from gen_trajectories import _buggy_versions, make_repo, verify_repo, _patch_overlap
 
-API_URL = "https://api.tokenrouter.com/v1/chat/completions"
-API_KEY = os.environ.get("TOKENROUTER_API_KEY",
-                         "sk-3mHRsM07mG3kgbS4064Q0nWlYF9MB4lbhmOkjCUVFiTJkFWo")
-MODEL = os.environ.get("TEACHER_MODEL", "moonshotai/kimi-k3-free")
+# --- Teacher endpoint (env-overridable; TOKENROUTER_* kept as fallback) ---
+API_URL = os.environ.get(
+    "TEACHER_API_URL",
+    os.environ.get("TOKENROUTER_API_URL",
+                   "https://mateooo93--ep-kimi-k3-server.us-west.modal.direct/v1/chat/completions"))
+API_KEY = os.environ.get(
+    "TEACHER_API_KEY",
+    os.environ.get("TOKENROUTER_API_KEY",
+                   "wk-jSKawWKGnbucacJdSaQpnt.ws-T1Y93tiLjn76DT4FS5VqnP"))
+MODEL = os.environ.get("TEACHER_MODEL", "moonshotai/Kimi-K3")
 
 TOOLS_DESC = """\
 Available tools (call EXACTLY one per turn, in this format):
@@ -101,7 +107,7 @@ def teacher_complete(messages, max_tokens=1200, temperature=0.7,
                 headers={"Authorization": f"Bearer {API_KEY}",
                          "Content-Type": "application/json"},
             )
-            with urllib.request.urlopen(req, timeout=600) as resp:
+            with urllib.request.urlopen(req, timeout=120) as resp:
                 data = json.loads(resp.read())
             msg = data["choices"][0]["message"]
             # Kimi K3 is a reasoning model — content may be None with reasoning_content.
@@ -115,7 +121,7 @@ def teacher_complete(messages, max_tokens=1200, temperature=0.7,
                 raise RuntimeError(
                     f"teacher_complete permanent HTTP {e.code}: {e.reason}")
             last_err = e
-            wait = min(60, 5 * (2 ** attempt))  # 5,10,20,40,60... capped at 60s
+            wait = min(20, 5 * (2 ** attempt))  # 5,10,20... capped at 20s
             print(f"    [teacher] attempt {attempt+1}/{retries} failed: {e} "
                   f"— retrying in {wait}s...", flush=True)
             time.sleep(wait)
