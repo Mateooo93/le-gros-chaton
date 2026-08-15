@@ -372,6 +372,35 @@ def main() -> None:
     from datasets import Dataset
     from transformers import DataCollatorForSeq2Seq, Trainer, TrainingArguments
 
+    class AssistantTokenTrainer(Trainer):
+        """Compute CE only on assistant-token positions (labels != -100).
+
+        trajectory SFT masks every non-assistant token to -100. The stock
+        ForCausalLMLoss still materializes the FULL [seq, vocab] logits in
+        fp32 (logits.float()) before masking, which OOMs on a 14.5GiB T4
+        with this 248K-vocab checkpoint (~5.7GiB just for the fp32 upcast).
+        Gathering only the ~700 assistant positions first shrinks the fp32
+        tensor 4-5x and is numerically identical (masked positions contribute
+        zero to the loss).
+        """
+
+        def compute_loss(self, model, inputs, return_outputs=False, **kw):
+            labels = inputs.pop("labels")
+            outputs = model(**inputs)
+            logits = outputs.logits                     # [B, S, V] fp16
+            shift_logits = logits[..., :-1, :]          # view, no copy
+            shift_labels = labels[..., 1:]
+            mask = shift_labels != -100
+            active_logits = shift_logits[mask].float()  # [N, V] fp32, N<<S
+            active_labels = shift_labels[mask]
+            outputs.logits = None                        # drop the big fp16 tensor ref
+            del logits, shift_logits, inputs             # free before CE
+            if active_logits.numel() == 0:
+                loss = active_logits.sum()               # 0.0, keeps grad graph
+            else:
+                loss = torch.nn.functional.cross_entropy(active_logits, active_labels)
+            return (loss, outputs) if return_outputs else loss
+
     ds = Dataset.from_dict({"messages": grounded})
     tokenized = ds.map(
         make_tokenize_fn(tok, TRAJECTORY_CTX), batched=True,
@@ -410,8 +439,7 @@ def main() -> None:
         optim="paged_adamw_8bit",        # offload optimizer states to CPU
     )
 
-    trainer = Trainer(
-        model=model,
+    trainer = AssistantTokenTrainer(
         args=training_args,
         train_dataset=tokenized,
         data_collator=DataCollatorForSeq2Seq(tok, pad_to_multiple_of=8),
