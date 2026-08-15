@@ -158,8 +158,8 @@ def main():
                         help="Dataset rows for SFT")
     parser.add_argument("--batch-size", type=int, default=2,
                         help="Per-GPU batch size for SFT (2x T4 => eff batch 32)")
-    parser.add_argument("--phase", default="sft", choices=["sft", "rlvr"],
-                        help="Which training phase to run")
+    parser.add_argument("--phase", default="sft", choices=["sft", "rlvr", "traj"],
+                        help="Which training phase to run (sft | rlvr | traj)")
     parser.add_argument("--rlvr-steps", type=int, default=100,
                         help="RLVR training steps (phase=rlvr)")
     parser.add_argument("--rlvr-group", type=int, default=4,

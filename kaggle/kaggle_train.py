@@ -123,6 +123,21 @@ try:
 
     if phase == "rlvr":
         cmd = [sys.executable, "-u", "train_qwen.py"] + rlvr_args()
+    elif phase == "traj":
+        # Trajectory SFT (Phase 2b): pull verified teacher traces from HF,
+        # train an assistant-token-only LoRA on top of the 91% Fable5 adapter,
+        # save locally (uploaded to OUT_REPO root below). T4 = 16GB -> 8K ctx.
+        os.environ.setdefault("MODEL_NAME", "techwithsergiu/Qwen3.5-9B-bnb-4bit")
+        os.environ.setdefault("ADAPTER", "mateo0093/le-gros-chaton-qwen")
+        os.environ.setdefault("TRACES_REPO", "mateo0093/le-gros-chaton-traces")
+        os.environ.setdefault("TRACES_FILE", "agent_traces_normalized.jsonl")
+        os.environ.setdefault("TRAJECTORY_CTX", "8192")
+        os.environ.setdefault("EPOCHS", "3")
+        os.environ.setdefault("BATCH", "1")
+        os.environ.setdefault("LR", "2e-4")
+        os.environ.setdefault("LORA_R", "16")
+        os.environ.setdefault("OUT_DIR", "qwen_traj_sft")
+        cmd = [sys.executable, "-u", "colab/trajectory_sft.py", "--no-upload"]
     else:
         # SFT: continue from the trained SFT adapter (mateo0093/le-gros-chaton-qwen)
         # rather than starting from a random LoRA. --resume-sft is NOT used:
@@ -153,6 +168,20 @@ try:
         raise RuntimeError(f"train failed rc={rc}")
 
     log("=== TRAINING COMPLETE ===")
+
+    if phase == "traj":
+        # Upload the trajectory LoRA to OUT_REPO ROOT (merge_sft.py reads it
+        # as TRAJ_ADAPTER = mateo0093/le-gros-chaton-qwen-traj-sft). Do NOT use
+        # trajectory_sft.py's own --upload (it writes to OUT_REPO/traj_sft,
+        # a subfolder the merge step doesn't look for).
+        from huggingface_hub import HfApi
+        out_repo = os.environ.get("OUT_REPO", "mateo0093/le-gros-chaton-qwen-traj-sft")
+        out_dir = os.environ.get("OUT_DIR", "qwen_traj_sft")
+        log(f"=== Uploading trajectory adapter '{out_dir}' -> '{out_repo}' (root) ===")
+        HfApi(token=os.environ.get("HF_TOKEN", "")).upload_folder(
+            folder_path=out_dir, repo_id=out_repo, repo_type="model",
+            commit_message="trajectory SFT adapter")
+        log("=== trajectory adapter uploaded ===")
 
 except Exception as e:
     log("EXCEPTION: " + repr(e))
