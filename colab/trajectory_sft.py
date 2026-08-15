@@ -389,8 +389,13 @@ def main() -> None:
 
         def compute_loss(self, model, inputs, return_outputs=False, **kw):
             labels = inputs.pop("labels")
-            outputs = model(**inputs)
-            logits = outputs.logits                     # [B, S, V] bf16
+            # fp16 autocast for the forward ONLY: the gated-delta-net exp/softmax
+            # overflow pure fp16 (grad_norm -> NaN). Autocast promotes those ops
+            # to fp32 without Accelerator's ConvertOutputsToFp32 full-logits
+            # upcast (which OOMs a 14.5GiB T4 on this 248K-vocab checkpoint).
+            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                outputs = model(**inputs)
+            logits = outputs.logits                     # [B, S, V] fp16
             shift_logits = logits[..., :-1, :]          # view, no copy
             shift_labels = labels[..., 1:]
             mask = shift_labels != -100                 # [B, S] bool
