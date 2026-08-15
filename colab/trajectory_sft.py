@@ -390,22 +390,32 @@ def main() -> None:
         def compute_loss(self, model, inputs, return_outputs=False, **kw):
             labels = inputs.pop("labels")
             outputs = model(**inputs)
-            logits = outputs.logits                     # [B, S, V] fp16
+            logits = outputs.logits                     # [B, S, V] bf16
             shift_logits = logits[..., :-1, :]          # view, no copy
             shift_labels = labels[..., 1:]
-            mask = shift_labels != -100
-            active_logits = shift_logits[mask]          # [N, V] fp16, N<<S
-            active_labels = shift_labels[mask]
-            # Free the full [B,S,V] logits + inputs BEFORE the fp32 upcast so
-            # we never hold the full vocab tensor in fp32 (which is ~5.7GiB at
-            # 3K ctx on this 248K-vocab checkpoint and OOMs a 14.5GiB T4).
+            mask = shift_labels != -100                 # [B, S] bool
+            # Sum CE over assistant positions in bounded chunks so we never
+            # materialize [N, 248K] in fp32 (~3GiB on tool-heavy traces and
+            # ~5.7GiB if the full vocab tensor were upcast — both OOM a 14.5GiB
+            # T4). Accumulate the graph across chunks (NO .item()) so grads flow.
+            CH = 256
+            total, count = None, 0
+            for b in range(shift_logits.shape[0]):
+                idxs = mask[b].nonzero(as_tuple=True)[0]
+                for s in range(0, idxs.numel(), CH):
+                    pos = idxs[s:s + CH]
+                    lg = shift_logits[b, pos].float()   # [<=CH, V] fp32
+                    lab = shift_labels[b, pos]
+                    step_loss = torch.nn.functional.cross_entropy(
+                        lg, lab, reduction="sum")
+                    total = step_loss if total is None else total + step_loss
+                    count += pos.numel()
             outputs.logits = None
             del logits, shift_logits, inputs
-            if active_logits.numel() == 0:
-                loss = active_logits.float().sum()       # 0.0, keeps grad graph
+            if count == 0 or total is None:
+                loss = lg.float().sum() * 0.0
             else:
-                loss = torch.nn.functional.cross_entropy(
-                    active_logits.float(), active_labels)
+                loss = total / count
             return (loss, outputs) if return_outputs else loss
 
     ds = Dataset.from_dict({"messages": grounded})
