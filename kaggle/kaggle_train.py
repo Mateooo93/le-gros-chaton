@@ -126,13 +126,14 @@ try:
     elif phase == "traj":
         # Trajectory SFT (Phase 2b): pull verified teacher traces from HF,
         # train an assistant-token-only LoRA on top of the 91% Fable5 adapter,
-        # save locally (uploaded to OUT_REPO root below). T4 -> 2K ctx.
+        # save locally (uploaded to OUT_REPO root below). T4 -> 1.5K ctx.
         os.environ.setdefault("MODEL_NAME", "Qwen/Qwen3.5-9B")
-        os.environ.setdefault("TRAJECTORY_CTX", "2048")
+        os.environ.setdefault("TRAJECTORY_CTX", "1536")
         # Full base quantized on-the-fly with fp16 4-bit compute (T4 tensor
         # cores). The techwithsergiu bnb-4bit checkpoint has bf16 compute baked
         # in — T4 has no bf16 tensor cores, so it emulates in fp32 (~668s/step,
-        # unusable). fp16 compute restores native T4 throughput.
+        # unusable). fp16 + ctx 1536 = native throughput AND fits (ctx 2048
+        # OOMs in backward by ~0.7GiB).
         os.environ.setdefault("TRACES_REPO", "mateo0093/le-gros-chaton-traces")
         os.environ.setdefault("TRACES_FILE", "agent_traces_normalized.jsonl")
         os.environ.setdefault("TRAJECTORY_CTX", "8192")
