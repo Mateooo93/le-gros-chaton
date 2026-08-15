@@ -440,6 +440,7 @@ def main() -> None:
     )
 
     trainer = AssistantTokenTrainer(
+        model=model,
         args=training_args,
         train_dataset=tokenized,
         data_collator=DataCollatorForSeq2Seq(tok, pad_to_multiple_of=8),
