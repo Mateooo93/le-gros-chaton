@@ -188,7 +188,11 @@ def load_model_and_tokenizer(model_name: str, adapter: str):
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from peft import PeftModel
 
-    device_map = os.environ.get("DEVICE_MAP", "auto").strip()
+    device_map = os.environ.get("DEVICE_MAP", "").strip() or None
+    # NOTE: device_map="auto" makes accelerate wrap model.forward in
+    # ConvertOutputsToFp32 (full-logits fp32 upcast) — harmless at 512 ctx but
+    # a ~3GiB OOM at trajectory ctx on a 14.5GiB T4. Load directly on cuda:0
+    # (default None) so the 4-bit model lands on the single GPU with no wrapper.
     max_memory_raw = os.environ.get("MAX_MEMORY", "").strip()
     max_memory = None
     if max_memory_raw:
