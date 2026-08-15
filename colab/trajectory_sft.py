@@ -391,14 +391,18 @@ def main() -> None:
             shift_logits = logits[..., :-1, :]          # view, no copy
             shift_labels = labels[..., 1:]
             mask = shift_labels != -100
-            active_logits = shift_logits[mask].float()  # [N, V] fp32, N<<S
+            active_logits = shift_logits[mask]          # [N, V] fp16, N<<S
             active_labels = shift_labels[mask]
-            outputs.logits = None                        # drop the big fp16 tensor ref
-            del logits, shift_logits, inputs             # free before CE
+            # Free the full [B,S,V] logits + inputs BEFORE the fp32 upcast so
+            # we never hold the full vocab tensor in fp32 (which is ~5.7GiB at
+            # 3K ctx on this 248K-vocab checkpoint and OOMs a 14.5GiB T4).
+            outputs.logits = None
+            del logits, shift_logits, inputs
             if active_logits.numel() == 0:
-                loss = active_logits.sum()               # 0.0, keeps grad graph
+                loss = active_logits.float().sum()       # 0.0, keeps grad graph
             else:
-                loss = torch.nn.functional.cross_entropy(active_logits, active_labels)
+                loss = torch.nn.functional.cross_entropy(
+                    active_logits.float(), active_labels)
             return (loss, outputs) if return_outputs else loss
 
     ds = Dataset.from_dict({"messages": grounded})
