@@ -129,6 +129,9 @@ try:
         # save locally (uploaded to OUT_REPO root below). T4=14.5GiB -> 3K ctx.
         os.environ.setdefault("MODEL_NAME", "techwithsergiu/Qwen3.5-9B-bnb-4bit")
         os.environ.setdefault("TRAJECTORY_CTX", "3072")
+        # T4 (14.56GiB) OOMs on the fp32 logits in ForCausalLMLoss — offload
+        # what doesn't fit in ~12GiB of GPU to CPU so training completes.
+        os.environ.setdefault("MAX_MEMORY", '{"0": "12GiB", "cpu": "30GiB"}')
         os.environ.setdefault("TRACES_REPO", "mateo0093/le-gros-chaton-traces")
         os.environ.setdefault("TRACES_FILE", "agent_traces_normalized.jsonl")
         os.environ.setdefault("TRAJECTORY_CTX", "8192")
