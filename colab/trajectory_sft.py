@@ -438,7 +438,11 @@ def main() -> None:
         logging_steps=5,
         save_steps=0,
         save_total_limit=1,
-        fp16=True,
+        # fp16=False: the 4-bit model already computes in fp16
+        # (bnb_4bit_compute_dtype=float16). fp16=True would make Accelerator
+        # wrap model.forward in convert_outputs_to_fp32 — upcasting the FULL
+        # [seq, 248K] logits to fp32 (~5.7GiB OOM on a 14.5GiB T4). Our
+        # AssistantTokenTrainer upcasts only the ~700 assistant positions.
         remove_unused_columns=False,
         report_to="none",
         dataloader_num_workers=0,
