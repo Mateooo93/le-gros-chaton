@@ -126,9 +126,9 @@ try:
     elif phase == "traj":
         # Trajectory SFT (Phase 2b): pull verified teacher traces from HF,
         # train an assistant-token-only LoRA on top of the 91% Fable5 adapter,
-        # save locally (uploaded to OUT_REPO root below). T4 = 16GB -> 8K ctx.
+        # save locally (uploaded to OUT_REPO root below). T4 = 14.5GiB -> 4K ctx.
         os.environ.setdefault("MODEL_NAME", "techwithsergiu/Qwen3.5-9B-bnb-4bit")
-        os.environ.setdefault("ADAPTER", "mateo0093/le-gros-chaton-qwen")
+        os.environ.setdefault("TRAJECTORY_CTX", "4096")
         os.environ.setdefault("TRACES_REPO", "mateo0093/le-gros-chaton-traces")
         os.environ.setdefault("TRACES_FILE", "agent_traces_normalized.jsonl")
         os.environ.setdefault("TRAJECTORY_CTX", "8192")
