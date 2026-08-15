@@ -462,7 +462,11 @@ def main() -> None:
         report_to="none",
         dataloader_num_workers=0,
         gradient_checkpointing=True,
-        optim="paged_adamw_8bit",        # offload optimizer states to CPU
+        # Plain fp32 AdamW: the LoRA has only 43.3M trainable params, so
+        # optimizer states are ~346MB. paged_adamw_8bit (bitsandbytes CPU-offload
+        # paging) is unnecessary at this scale AND crashes on T4 with
+        # "CUDA error: illegal memory access" in sync_gpu() during step().
+        optim="adamw_torch",
     )
 
     trainer = AssistantTokenTrainer(
