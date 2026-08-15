@@ -217,7 +217,7 @@ def load_model_and_tokenizer(model_name: str, adapter: str):
         device_map=device_map,
         max_memory=max_memory,
         trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float16,
     )
     log(f"Attaching 91% Fable5 SFT adapter '{adapter}' ...")
     if adapter and adapter.strip().lower() not in ("none", "null", ""):
