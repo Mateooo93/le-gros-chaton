@@ -126,13 +126,12 @@ try:
     elif phase == "traj":
         # Trajectory SFT (Phase 2b): pull verified teacher traces from HF,
         # train an assistant-token-only LoRA on top of the 91% Fable5 adapter,
-        # save locally (uploaded to OUT_REPO root below). T4=14.5GiB -> 3K ctx.
+        # save locally (uploaded to OUT_REPO root below). T4=14.5GiB -> 2K ctx.
         os.environ.setdefault("MODEL_NAME", "techwithsergiu/Qwen3.5-9B-bnb-4bit")
-        os.environ.setdefault("TRAJECTORY_CTX", "3072")
-        # No MAX_MEMORY offload: device_map auto + cpu offload makes accelerate
-        # wrap forward in convert_to_fp32 (upcasts the FULL [seq, 248K] logits,
-        # ~5.7GiB, OOM). The AssistantTokenTrainer loss keeps fp32 logits tiny,
-        # so the model fits on-GPU without offload.
+        os.environ.setdefault("TRAJECTORY_CTX", "2048")
+        # T4 14.5GiB: at ctx 3072 the forward pass (model + full bf16 logits,
+        # 248K vocab) already peaks at 14.4GiB — no room for loss/backward.
+        # 2048 leaves ~1.7GiB headroom for the chunked loss + backward.
         os.environ.setdefault("TRACES_REPO", "mateo0093/le-gros-chaton-traces")
         os.environ.setdefault("TRACES_FILE", "agent_traces_normalized.jsonl")
         os.environ.setdefault("TRAJECTORY_CTX", "8192")
