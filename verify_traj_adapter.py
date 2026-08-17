@@ -53,7 +53,7 @@ def main():
         return 1
     log("  fresh (after --since) OK")
 
-    names = {f.path for f in (info.siblings or [])}
+    names = {f.rfilename for f in (info.siblings or [])}
     required = {"adapter_config.json", "adapter_model.safetensors"}
     missing = required - names
     if missing:
@@ -66,8 +66,8 @@ def main():
     # upload ever goes to traj_sft/ again).
     cfg_path = None
     for f in (info.siblings or []):
-        if f.path.endswith("adapter_config.json"):
-            cfg_path = f.path
+        if f.rfilename.endswith("adapter_config.json"):
+            cfg_path = f.rfilename
             break
     cfg = api.hf_hub_download(args.repo, cfg_path)
     with open(cfg) as fh:
