@@ -1,8 +1,10 @@
 #!/bin/bash
 # Hackatime heartbeat script for Pi agent / OMP coding sessions.
 #
-# Tracks time even when no file is being edited: the cron fires every 2 minutes
-# and sends a heartbeat on EVERY run, so Hackatime counts continuous time.
+# Only sends a heartbeat when a project file was ACTUALLY modified since the
+# last check (2-min cron). No edits -> no heartbeat -> Hackatime logs no idle
+# time. This matches editor-style tracking: time is counted only while work is
+# happening, not while the machine sits idle.
 #
 # The tracked project is derived from the MOST RECENTLY ACTIVE OMP session
 # (~/.pi/agent/sessions/**/*.jsonl). Each session's first line records its
@@ -42,12 +44,19 @@ fi
 NOW=$(date +%s.%N)
 
 # --- 3. Pick the file entity ---
-# Prefer a file edited since the last heartbeat; fall back to the newest
-# project file so idle heartbeats land on a real, project-attributed file.
-newest_file() {  # $1 = extra find predicates
-    find "$PROJECT_DIR" \
+# ONLY files modified since the last heartbeat qualify. If nothing changed,
+# we are idle: skip the heartbeat entirely (no fake editor activity).
+newest_file() {
+    # Portable: this box's find (BusyBox/BSD) cannot parse GNU '@epoch'
+    # timestamps, so filter by mtime ourselves via stat.
+    best=""
+    while IFS= read -r -d '' f; do
+        mt=$(stat -c %Y "$f" 2>/dev/null || echo 0)
+        [ "$mt" -gt "${LAST_CHECK%%.*}" ] || continue
+        [ -n "$best" ] || best="$mt $f"
+        [ "$mt" -gt "${best%% *}" ] && best="$mt $f"
+    done < <(find "$PROJECT_DIR" \
         -type f \
-        "$@" \
         ! -path "$PROJECT_DIR/.git/*" \
         ! -path "$PROJECT_DIR/.pi/*" \
         ! -path "$PROJECT_DIR/.pi-glla/*" \
@@ -61,21 +70,19 @@ newest_file() {  # $1 = extra find predicates
         ! -path "$PROJECT_DIR/*/__pycache__/*" \
         ! -name ".hackatime-*" \
         ! -name "*.pyc" \
-        -printf '%T@ %p\n' 2>/dev/null \
-        | sort -rn | head -1 | cut -d' ' -f2-
+        -print0 2>/dev/null)
+    [ -n "$best" ] && printf '%s\n' "${best#* }"
 }
 
-NEWEST_FILE=$(newest_file -newermt "@$LAST_CHECK")
-if [ -z "$NEWEST_FILE" ]; then
-    NEWEST_FILE=$(newest_file)
-fi
+NEWEST_FILE=$(newest_file)
 
-# Extreme safety net: never send an empty entity.
+# Idle: nothing edited since the last heartbeat. Do NOT send a heartbeat —
+# Hackatime must only count time with real file activity.
 if [ -z "$NEWEST_FILE" ]; then
     exit 0
 fi
 
-# --- 4. Send a heartbeat (every run) ---
+# --- 4. Send a heartbeat (only when a project file changed) ---
 "$WAKA_CLI" \
     --entity "$NEWEST_FILE" \
     --plugin "pi/1.0" \
