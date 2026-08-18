@@ -76,6 +76,17 @@ but does NOT transfer values (verified: 0.0215 vs 0.123 expected; lora_B zeros).
 - HumanEval pass@1 / SWE-bench subset via eval_qwen.py — supporting numbers.
 - Bump attempts 5→10 on the best model for a tighter CI.
 
+## Conditional: tool-call repair model (ONLY if format is bad)
+Decision gate after RLVR eval: run `eval_toolcalls.py` on the merged model.
+- Format accuracy >95% → skip. Layers 1-2 (regex + deterministic whitelist
+  repair in the harness) are already cheap wins; add them regardless.
+- Format accuracy ≤95% → add a tiny (1-4B, e.g. Qwen3.5-4B) repair model:
+  malformed 9B output + context → canonical ```tool\nargs```; output MUST be
+  re-verified by the parser before execution; failure degrades to the existing
+  corrective-feedback retry loop (never executes garbage).
+- Trained repair formatter only if base tiny model still fumbles (SFT on
+  (malformed → canonical) pairs generated from our own traces).
+
 ## Success criteria
 - TB 2.0 ≥30% (5 attempts/task, leaderboard protocol) — SOTA-class for a 9B.
 - Adapter loads cleanly (flat, 12 modules), merge verified by value transfer, not just "no error".
