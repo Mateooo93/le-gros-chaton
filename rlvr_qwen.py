@@ -183,17 +183,26 @@ def load_model(model_name: str, adapter: str, lora_r: int):
     from peft import LoraConfig, PeftModel, get_peft_model
 
     device_map = os.environ.get("DEVICE_MAP", "auto").strip()
-    quant = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_compute_dtype=torch.float16,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-    )
-    log(f"Loading base '{model_name}' (4-bit, device_map={device_map}) ...")
+    # Q4_KW: 4-bit QLoRA fallback for small cards (T4/2070).
+    # MI300X (192GB) loads the merged bf16 model unquantized — set
+    # QUANT=none (default on ROCm targets) to use bf16 tensor cores.
+    quant_mode = os.environ.get("QUANT", "none").strip().lower()
+    torch_dtype = torch.bfloat16 if quant_mode == "none" else torch.float16
+    quant = None
+    if quant_mode != "none":
+        quant = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+    log(f"Loading base '{model_name}' "
+        f"({'bf16 unquantized' if quant is None else '4-bit fp16'}, "
+        f"device_map={device_map}) ...")
     tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_name, quantization_config=quant, device_map=device_map,
-        trust_remote_code=True, torch_dtype=torch.float16)
+        trust_remote_code=True, torch_dtype=torch_dtype)
 
     if adapter and adapter.strip().lower() not in ("none", "null", ""):
         log(f"Attaching trajectory-SFT adapter '{adapter}' (frozen) ...")
@@ -202,11 +211,18 @@ def load_model(model_name: str, adapter: str, lora_r: int):
             if name.split(".")[-1].startswith("lora_"):
                 p.requires_grad = False
 
-    log(f"Attaching fresh LoRA (r={lora_r}, alpha={2 * lora_r}) ...")
+    # FULL hybrid module set (matches trajectory SFT: Qwen3.5 = 8x(3 GDN +
+    # 1 GatedAttention); PEFT inherits modules that exist, ignores the rest).
+    log(f"Attaching fresh LoRA (r={lora_r}, alpha={2 * lora_r}, "
+        f"12 hybrid modules) ...")
     model = get_peft_model(model, LoraConfig(
         r=lora_r, lora_alpha=2 * lora_r,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                        "gate_proj", "up_proj", "down_proj"],
+        target_modules=[
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+            "in_proj_qkv", "in_proj_a", "in_proj_b", "in_proj_z",
+            "out_proj",
+        ],
         lora_dropout=0.05, bias="none", task_type="CAUSAL_LM"))
     model.gradient_checkpointing_enable()
     model.print_trainable_parameters()

@@ -26,6 +26,10 @@ import json
 import os
 import sys
 
+# fp16 autocast is ONLY needed for the 4-bit T4 path (gated-delta-net
+# exp/softmax overflow pure fp16). QUANT=none (bf16, MI300X) runs natively.
+USE_AUTOCAST_FP16 = os.environ.get("QUANT", "").strip().lower() != "none"
+
 
 # --------------------------------------------------------------------------
 # Logging
@@ -203,6 +207,21 @@ def load_model_and_tokenizer(model_name: str, adapter: str):
                           for k, v in max_memory.items()}
         except Exception as e:
             log(f"WARN: MAX_MEMORY not valid JSON ({e}); ignoring")
+    # QUANT=none (default on ROCm/MI300X): native bf16, no quantization,
+    # bf16 tensor cores, no fp16-overflow autocast needed. Default (T4/2070):
+    # 4-bit nf4 with fp16 compute as before.
+    quant_mode = os.environ.get("QUANT", "").strip().lower()
+    if quant_mode == "none":
+        log(f"Loading base model '{model_name}' (bf16 unquantized, device_map={device_map}, max_memory={max_memory}) ...")
+        tok = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            device_map=device_map or "auto",
+            max_memory=max_memory,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+        )
+        return model, tok
     quant = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_compute_dtype=torch.float16,
@@ -333,9 +352,9 @@ def main() -> None:
 
     import torch
     if not torch.cuda.is_available():
-        die("no CUDA GPU detected — 4-bit loading + paged_adamw_8bit need a "
-            "CUDA GPU (Colab T4, Kaggle P100/T4, Modal A10G, local RTX). "
-            "Check `nvidia-smi` / runtime type.")
+        die("no CUDA GPU detected (ROCm torch reports CUDA via HIP, so this "
+            "fires only when truly GPUs are absent). Check `rocm-smi` / "
+            "`nvidia-smi`.")
     gpu_name = torch.cuda.get_device_name(0)
     log(f"GPU: {gpu_name}")
 
@@ -356,12 +375,23 @@ def main() -> None:
     import torch as _t
     from peft import LoraConfig, get_peft_model
     lora_r = int(os.environ.get("LORA_R", "16"))
-    log(f"Attaching fresh LoRA (r={lora_r}, alpha={2 * lora_r}, q/k/v/o/gate/up/down) ...")
+    # FULL hybrid module set (Qwen3.5 = 8×(3 GatedDeltaNet → FFN) → 1×
+    # (Gated Attention → FFN)); PEFT silently ignores modules that don't
+    # exist on a layer, so listing all 12 is safe on every block type.
+    # CRITICAL: the outer LoraConfig determines what adapter_config.json
+    # gets saved — listing only 7 here produced a stale config for the
+    # 12-module weights (see flatten_traj_adapter.py).
+    log(f"Attaching fresh LoRA (r={lora_r}, alpha={2 * lora_r}, "
+        f"12 hybrid modules) ...")
     lora_cfg = LoraConfig(
         r=lora_r,
         lora_alpha=2 * lora_r,
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                        "gate_proj", "up_proj", "down_proj"],
+        target_modules=[
+            "q_proj", "k_proj", "v_proj", "o_proj",
+            "gate_proj", "up_proj", "down_proj",
+            "in_proj_qkv", "in_proj_a", "in_proj_b", "in_proj_z",
+            "out_proj",
+        ],
         lora_dropout=0.05,
         bias="none",
         task_type="CAUSAL_LM",
@@ -389,11 +419,16 @@ def main() -> None:
 
         def compute_loss(self, model, inputs, return_outputs=False, **kw):
             labels = inputs.pop("labels")
-            # fp16 autocast for the forward ONLY: the gated-delta-net exp/softmax
-            # overflow pure fp16 (grad_norm -> NaN). Autocast promotes those ops
+            # fp16 autocast ONLY for the 4-bit path: gated-delta-net exp/softmax
+            # overflow pure fp16 (grad_norm -> NaN); autocast promotes those ops
             # to fp32 without Accelerator's ConvertOutputsToFp32 full-logits
-            # upcast (which OOMs a 14.5GiB T4 on this 248K-vocab checkpoint).
-            with torch.autocast(device_type="cuda", dtype=torch.float16):
+            # upcast. QUANT=none (bf16 MI300X) needs NO autocast — bf16's 8-bit
+            # exponent never overflows, and autocasting bf16 to fp16 would
+            # REINTRODUCE the overflow. Leave it natively bf16.
+            if USE_AUTOCAST_FP16:
+                with torch.autocast(device_type="cuda", dtype=torch.float16):
+                    outputs = model(**inputs)
+            else:
                 outputs = model(**inputs)
             logits = outputs.logits                     # [B, S, V] fp16
             shift_logits = logits[..., :-1, :]          # view, no copy
@@ -453,11 +488,12 @@ def main() -> None:
         logging_steps=5,
         save_steps=0,
         save_total_limit=1,
-        # fp16=False: the 4-bit model already computes in fp16
-        # (bnb_4bit_compute_dtype=float16). fp16=True would make Accelerator
-        # wrap model.forward in convert_outputs_to_fp32 — upcasting the FULL
-        # [seq, 248K] logits to fp32 (~5.7GiB OOM on a 14.5GiB T4). Our
-        # AssistantTokenTrainer upcasts only the ~700 assistant positions.
+        # fp16=False, always: the model computes natively (4-bit bnb runs
+        # fp16 via bnb_4bit_compute_dtype; QUANT=none runs bf16). Enabling
+        # accelerator fp16 would wrap forward in convert_outputs_to_fp32 and
+        # upcast the FULL [seq, 248K] logits to fp32 (~5.7GiB OOM on a T4;
+        # wasteful even at 192GB). Our custom loss upcasts only assistant
+        # positions (plus bf16 never needs fp32 promotion).
         remove_unused_columns=False,
         report_to="none",
         dataloader_num_workers=0,
