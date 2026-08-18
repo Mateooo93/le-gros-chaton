@@ -93,6 +93,9 @@ def main() -> None:
         log(f"Uploading to HF repo '{out_repo}' ...")
         from huggingface_hub import HfApi
         api = HfApi(token=HF_TOKEN)
+        # v16k1: merge upload 404'd because the repo didn't exist yet.
+        # create_repo(exist_ok=True) makes the upload self-healing.
+        api.create_repo(out_repo, repo_type="model", private=True, exist_ok=True)
         api.upload_folder(folder_path=OUT_DIR, repo_id=out_repo,
                           repo_type="model",
                           commit_message="merged base+Fable5+traj SFT")
