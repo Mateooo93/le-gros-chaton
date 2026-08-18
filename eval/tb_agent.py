@@ -393,6 +393,35 @@ def _failure_hint(action: str, result: str) -> str:
         "search_code": "Pattern may not match. Try a simpler pattern.",
     }
     base = hints.get(action, "Tool call failed. Examine the error and retry.")
+
+    # doc-retrieve-on-failure: "command not found" (24% of TB command
+    # failures per the TB 2.0 error analysis) is usually a knowledge gap,
+    # not a fixable mistake. Point the model at the tool's own docs instead
+    # of guessing again — check_path candidates come from the error text.
+    lower = result.lower()
+    if action in ("run_cmd", "run_test") and (
+        "command not found" in lower or "not found" in lower
+        or "no such file" in lower
+    ):
+        cand = re.search(r"([\w./+-]+): (?:command )?not found", result)
+        cmd = cand.group(1) if cand else None
+        doc = ""
+        if cmd:
+            doc = (
+                f"Probe its interface first (STOP guessing): "
+                f"`which {cmd}`, `{cmd} --help`, `man {cmd}` if present, and "
+                f"`ls /usr/bin/{cmd}*` to see what is actually installed. "
+                f"If it is NOT installed, install it (apt/pip as appropriate) "
+                f"before relying on it."
+            )
+        else:
+            doc = (
+                "Resolve what is missing: `which <cmd>`, `--help`, or check "
+                "the package list (`apt list --installed` / `pip list`). "
+                "Do NOT retry the same command unchanged."
+            )
+        return "[Recovery] " + doc + " Error was: " + result[:250]
+
     return "[Recovery] " + base + " Error was: " + result[:300]
 
 
@@ -431,6 +460,10 @@ class LeGrosChatonTBAgent(BaseAgent):
         # The serving backend's context window is usually the binding
         # constraint (e.g. llama-server -c 16384); prune to fit it.
         self.server_ctx_limit = int(self._kwargs.get("server_ctx_limit", 14000))
+        # Scheduled compaction: force a state-sheet checkpoint every N turns
+        # (0 disables). Counters for finish-gate + dead-end detection live in
+        # the run loop, not here.
+        self.compact_every = int(self._kwargs.get("compact_every", 10))
 
     async def setup(self, environment: BaseEnvironment) -> None:
         """Nothing to install: the model runs on the host / remote server."""
@@ -453,6 +486,9 @@ class LeGrosChatonTBAgent(BaseAgent):
         recent_actions: list[tuple[str, str]] = []
         tool_calls_used = 0
         finished = False
+        # Finish-gate + dead-end detection + scheduled compaction state.
+        n_successful_tools = 0      # any tool result that was NOT a failure
+        consecutive_failures = 0    # tool failures in a row (task-level)
         summary = {"turns": 0, "tool_calls": 0, "finish_note": "", "error": None}
 
         for turn in range(self.max_turns):
@@ -496,9 +532,41 @@ class LeGrosChatonTBAgent(BaseAgent):
 
             for action, args_text in actions:
                 if action == "finish":
+                    # FINISH-GATE: don't let the model declare victory without
+                    # any observable progress. Terminal-Bench rewards END
+                    # STATE — a bare finish after zero successful actions is
+                    # almost always a hallucinated "done".
+                    if n_successful_tools == 0:
+                        gate = (
+                            "You tried to finish, but nothing you ran has "
+                            "succeeded yet (no verified action in this "
+                            "episode). Finish will NOT be accepted. Take a "
+                            "real action first — explore, edit, or run a "
+                            "verification — then finish with proof."
+                        )
+                        messages.append({"role": "user", "content": gate})
+                        self.logger.warning(
+                            "FINISH-GATE: blocked finish with 0 successful tools")
+                        continue
                     summary["finish_note"] = args_text[:200]
                     finished = True
                     break
+
+                # DEAD-END DETECTOR: a run of consecutive failures means the
+                # current strategy is stuck. Force a strategy break instead of
+                # letting it grind the same approach (coherence failure class).
+                if consecutive_failures >= 3:
+                    self.logger.warning(
+                        "DEAD-END: %d consecutive failures -> strategy pivot",
+                        consecutive_failures)
+                    pivot = (
+                        f"You have failed {consecutive_failures} actions in a "
+                        "row with the current strategy. STOP grinding. "
+                        "Describe TWO genuinely different approaches to this "
+                        "task, then pick ONE and try it."
+                    )
+                    messages.append({"role": "user", "content": pivot})
+                    consecutive_failures = 0
 
                 sig = (action, args_text[:60])
                 dup = sum(1 for a in recent_actions[-8:] if a == sig)
@@ -524,12 +592,39 @@ class LeGrosChatonTBAgent(BaseAgent):
                 self.logger.info("[tool %s] %s", action, args_text[:120])
                 # (turns already tracked at the top of the turn loop)
                 if _is_failure(result):
+                    consecutive_failures += 1
                     correction = _failure_hint(action, result)
                     messages.append({"role": "user", "content":
                         f"Result:\n{result[:2000]}\n\n{correction}"})
                 else:
+                    consecutive_failures = 0
+                    n_successful_tools += 1
                     messages.append({"role": "user", "content":
                         f"Result:\n{result[:2000]}"})
+
+            # SCHEDULED COMPACTION: every COMPACT_EVERY turns, force the model
+            # to write a compact state-sheet (goal/known/tried/failed/next) and
+            # drop the oldest messages so the session stays focused (context
+            # rot is a top coherence failure; TB found no success correlation
+            # with raw token volume — managing context is what wins).
+            if turn and turn % self.compact_every == 0 and not finished:
+                checkpoint = (
+                    "[CHECKPOINT] Before your next action, write a COMPACT "
+                    "state-sheet on one line: "
+                    "[STATE] goal=... | known=... | tried=... | failed=... | "
+                    "next=... . Then continue with exactly one tool call. "
+                    "Do not repeat commands you have already run."
+                )
+                messages.append({"role": "user", "content": checkpoint})
+                # Drop old messages but keep system + task + the checkpoint.
+                # (Mandatory context management beats reactive pruning.)
+                if len(messages) > 12:
+                    messages = (
+                        messages[:3] + messages[-9:] if not finished
+                        else messages
+                    )
+                self.logger.info("COMPACT at turn %d (messages -> %d)",
+                                 turn, len(messages))
 
             if finished:
                 break
