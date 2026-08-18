@@ -79,13 +79,23 @@ def main():
     if c.get("r") != 16:
         log(f"  WARN: r={c.get('r')} != 16")
         ok = False
-    for tm in ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj",
-               "up_proj", "down_proj"):
-        if tm not in c.get("target_modules", []):
-            log(f"  WARN: target module {tm} missing")
+    # Hybrid arch: modules are namespaced (self_attn.q_proj, linear_attn.in_proj_*,
+    # mlp.gate_proj). Require the SUFFIX classes, not bare names.
+    tm = c.get("target_modules", [])
+    for suffix in ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj",
+                   "up_proj", "down_proj", "in_proj_qkv", "in_proj_a",
+                   "in_proj_b", "in_proj_z", "out_proj"):
+        if not any(t.endswith(suffix) for t in tm):
+            log(f"  WARN: target module {suffix} missing")
             ok = False
+    if len(tm) < 12:
+        log(f"  WARN: only {len(tm)} target modules (expect 12 hybrid classes)")
+        ok = False
     if c.get("peft_type") != "LORA":
         log(f"  WARN: peft_type={c.get('peft_type')} != LORA")
+        ok = False
+    if not c.get("base_model_name_or_path"):
+        log("  WARN: base_model_name_or_path is empty/null")
         ok = False
     log("  config sane" if ok else "  config SUSPICIOUS")
 
