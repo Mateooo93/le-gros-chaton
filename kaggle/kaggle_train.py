@@ -183,7 +183,11 @@ try:
         out_repo = os.environ.get("OUT_REPO", "mateo0093/le-gros-chaton-qwen-traj-sft")
         out_dir = os.environ.get("OUT_DIR", "qwen_traj_sft")
         log(f"=== Uploading trajectory adapter '{out_dir}' -> '{out_repo}' (root) ===")
-        HfApi(token=os.environ.get("HF_TOKEN", "")).upload_folder(
+        api = HfApi(token=os.environ.get("HF_TOKEN", ""))
+        # v25 burned: upload_folder 404s if the repo doesn't exist yet.
+        # create_repo(exist_ok=True) makes the first run self-healing.
+        api.create_repo(out_repo, repo_type="model", private=True, exist_ok=True)
+        api.upload_folder(
             folder_path=out_dir, repo_id=out_repo, repo_type="model",
             commit_message="trajectory SFT adapter")
         log("=== trajectory adapter uploaded ===")
