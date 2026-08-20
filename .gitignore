@@ -58,4 +58,10 @@ agent_traces_normalized.jsonl
 eval/.tb_jobs_pilot/
 eval/tb_traces/
 research/
+eval/.tb_jobs_5x5/
+eval/.tb_jobs_5x5_v2/
+eval/.tb_jobs_5x5.log
+eval/.tb_jobs_5x5_v2.log
+eval/.tb_dryrun_results.jsonl
+.agent_state_box134.md
 eval/.tb_cache/

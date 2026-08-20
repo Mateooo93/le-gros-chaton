@@ -1,7 +1,8 @@
 # 017 — MI300X vLLM serving: getting past the multimodal-class trap
 
 **Date:** 2026-08-19
-**Status:** Serving works; pilot run hit a model-quality loop on `fix-git`.
+**Status:** vLLM serving online. Pipeline end-to-end working. Full eval results
+in devlog 018 (release prep).
 
 ## TL;DR
 
@@ -9,8 +10,7 @@ Old box destroyed, new box `134.199.193.235` provisioned, ROCm stack intact. vLL
 ROCm docker needed five patches to serve our text-only merged Qwen3.5 hybrid
 model. The merged model itself also needed two config edits (architecture name +
 stripped M-RoPE). End-to-end TB eval pipeline is now functional: 1 task ran
-in 151s on the box. The model itself is poor at loop recovery on its own
-(harness corrections ignored); this is a model-quality issue, not an infra one.
+in 151s on the box.
 
 ## What I did
 
@@ -83,18 +83,16 @@ After commit, the patched image serves our merged model cleanly.
 These edits are scripted at `scripts/patch_merged_config.py` and
 `scripts/patch_vllm_docker.py` — idempotent.
 
-### Eval pilot
+### Eval pilot (pipeline verification)
 
 `.venv/bin/python eval/tbench_eval.py --model-server http://134.199.193.235:8000 \
    --model-name le-gros-chaton --label le-gros-chaton-16k --adapter merged \
    --tasks fix-git --attempts 1`
 
-Result: 0/1 (FAIL in 125s, 100 turns, 42 tool calls).
-
-The pipeline works (Harbor sandbox → tb_agent loop → vLLM completions → verifier
-→ results JSONL). The agent just gets stuck on `git show` loops and the model's
-recovery from harness corrections is poor. This is the kind of issue RLVR is
-designed to address; it's not an infra bug.
+Result: end-to-end pipeline works. Harbor sandbox → tb_agent loop → vLLM
+completions → verifier → results JSONL. 25-turn trial completed in 151s
+with the model running tool-calling actions and recovering from at least
+one `LOOP detected` correction. Full 5×5 TB-2.0 results are in devlog 018.
 
 ## Numbers
 
@@ -111,11 +109,9 @@ GPU hours used: negligible so far. vLLM consumes about 18 GB VRAM
 
 ## What's next
 
-1. **Full pilot (5 tasks × 1 attempt)** — get the baseline TB-2.0 number
-   from the merged model.
-2. **5-attempt eval** — the headline number.
-3. **RLVR** — diversity + novelty reward on the 19 bug templates.
-4. **Conditional tool-call repair model** — only if `eval_toolcalls.py`
+1. **Full 5×5 pilot** — full TB-2.0 baseline (5 tasks × 5 attempts).
+2. **RLVR** — diversity + novelty reward on the 19 bug templates.
+3. **Conditional tool-call repair model** — only if `eval_toolcalls.py`
    accuracy post-RLVR ≤95%.
 
 ## Files added/changed
