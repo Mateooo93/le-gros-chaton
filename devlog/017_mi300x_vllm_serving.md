@@ -1,167 +1,76 @@
-# 017 — MI300X vLLM serving: getting past the multimodal-class trap
+# 017 — MI300X vLLM serving
 
-**Date:** 2026-08-19
-**Status:** vLLM serving online. Pipeline end-to-end working. Full eval results
-in devlog 018 (release prep).
+So the old GPU box got destroyed and I had to bring up a new one. Same
+SSH key, same ROCm stack already installed, just a fresh IP. I cloned
+the repo, scp'd over the .env file, ran the setup script. torch 2.5.1
+with ROCm 6.2 came through clean and the bf16 matmul sanity test
+passed, so the box was good to go.
 
-## TL;DR
+Getting vllm to serve the merged Qwen3.5 model was the hard part. The
+pip vllm 0.27 wheel is CUDA-only and doesn't have the ROCm build, so
+that was a dead end right away. The rocm/vllm-dev docker image has the
+right ROCm support but vllm 0.16rc2 in there only knows the
+multimodal version of Qwen3.5, and our merged model is text-only, so
+it kept complaining about missing vision_config.
 
-Old box destroyed, new box `134.199.193.235` provisioned, ROCm stack intact. vLLM
-ROCm docker needed five patches to serve our text-only merged Qwen3.5 hybrid
-model. The merged model itself also needed two config edits (architecture name +
-stripped M-RoPE). End-to-end TB eval pipeline is now functional: 1 task ran
-in 151s on the box.
+I tried renaming the merged config's arch field to match what vllm
+expected but that just kicked me to a different error about page sizes
+not lining up between the layers. The docker's weight loader was
+expecting nested keys like model.language_model.X because the
+multimodal class wraps everything in language_model, but our merged
+safetensors was written by AutoModelForCausalLM which loads the
+multimodal class by default and produces those nested keys. Even when
+the arch matched, the keys didn't.
 
-## What I did
+So I ended up patching the docker image in place. Five patches: I
+added Qwen3_5ForCausalLM to the registry, made the base class inherit
+IsHybrid (without that vllm's KV-cache layout fails on hybrid
+models), added the mamba state shape methods, and most importantly
+threw a WeightsMapper on the text-only load_weights that strips both
+model.language_model. and language_model. prefixes. Once that was in
+place, the model loaded and served.
 
-### Box setup
-- New MI300X box: `134.199.193.235` (root, ed25519 key already in `~/.ssh/mi300x`)
-- `apt install python3.12-venv python3-pip libgomp1`
-- Clone repo to `/root/le-gros-chaton`
-- Scp `.env` (chmod 600, HF_TOKEN)
-- `bash setup_mi300x.sh` — pulled torch 2.5.1+rocm6.2, bf16 matmul sanity OK
-- `pip install vllm` — installed vllm 0.27.1 (CUDA-only wheel — see below)
-- `pip install amdsmi` — required for vllm 0.16rc2's ROCm platform detection
+The merged config also needed two edits before vllm would accept it.
+I stripped mrope_interleaved and mrope_section from rope_parameters
+(vllm asserts M-RoPE isn't implemented in text-only mode) and dropped
+the dtype field since vllm uses --dtype from the CLI. Both fixes are
+scripted in scripts/patch_merged_config.py so they're idempotent.
 
-### Download merged model
-- `snapshot_download("mateo0093/le-gros-chaton-qwen-merged-16k")` to `/root/cache/huggingface`
-- 17.93 GB, ~1 min
+Once it was all running I tried a quick eval with one task to make
+sure the whole pipeline worked end to end. fix-git failed, the model
+got stuck on a git show loop and ran out of turns, but the pipeline
+itself was solid — Harbor sandbox, the agent loop, vLLM completions,
+verifier, all wired up correctly.
 
-### vLLM serving (this is the hard part)
+## Done, shipped
 
-Tried 3 paths in order; only #3 worked.
+Training is done and the merged model is on Hugging Face as a public
+release at mateo0093/le-gros-chaton, Apache-2.0. I copied the files
+server-side with HF's api.copy_files so nothing had to sit on my
+laptop's disk. README card has the license tag, base model link,
+benchmark table, and a citation block.
 
-**Path 1 — pip `vllm` 0.27.1 (CUDA wheel).** Fails with
-`RuntimeError: Failed to infer device type` because the pip wheel has no
-`_rocm_C.abi3.so` and ROCm torch reports CUDA via HIP. Even after
-`pip install amdsmi` (which vllm needs for ROCm platform detection), the
-engine raises `AssertionError: DP adjusted local rank 0 is out of bounds
-for 0 devices`.
+For the TB-2.0 5×5 pilot, the model landed at 3/25. The only task it
+handled was fix-git (3/5) because the trajectory SFT data leaned heavily
+on git orchestration patterns. Everything else needs better data
+covering the actual failure modes — multi-file synthesis, side-effect
+edits, input discovery. That's the obvious next step if anyone picks
+this up.
 
-**Path 2 — docker `rocm/vllm-dev:nightly_main_20260211`.** vllm 0.16rc2
-with the right ROCm `_C`. Initially fails with
-`TypeError: Invalid type of HuggingFace config. Expected type:
-Qwen3_5Config` because the docker's qwen3_5.py only knows the multimodal
-class (`Qwen3_5ForConditionalGeneration`) which demands `vision_config`.
-Our merged model is text-only (`Qwen3_5TextConfig`, no vision).
+I tried an RLVR probe with GRPO plus a novelty bonus on the 19 bug
+templates but the signal was weak. The novelty bonus made every
+rollout score around 1.0-1.3 with almost no variance between them, so
+the GRPO advantages were basically zero and the loss stayed near 0
+across most steps. The step-10 adapter is uploaded as
+mateo0093/le-gros-chaton-qwen-rlvr-step10 for the record but I didn't
+merge it into the release.
 
-Renaming the merged config to `Qwen3_5ForConditionalGeneration` gets past
-that error but exposes the next one: `NotImplementedError: The page size
-of the layer is not divisible`. The docker only registers the multimodal
-class, which routes through the `language_model.X` weight mapper; our
-safetensors is written by `AutoModelForCausalLM.from_pretrained` which
-loads the multimodal class and produces nested keys like
-`model.language_model.X`.
+GPU usage came out to about 12h out of the 50h budget. The vLLM
+patches and the eval harness tweaks are all in the repo.
 
-**Path 3 — patch the docker.** Apply 5 patches inside the docker and
-commit a new image `vllm-rocm-patched:latest`:
-
-1. **`registry.py`** — add a `"Qwen3_5ForCausalLM"` → `"Qwen3_5ForCausalLM"`
-   entry so the architecture resolution routes to the text-only handler.
-2. **`qwen3_5.py: typing imports`** — add `from typing import ClassVar, Literal`.
-3. **`qwen3_5.py: Qwen3_5ProcessingInfo.get_hf_config`** — fall back to
-   `Qwen3_5TextConfig` when the composite `Qwen3_5Config` isn't available.
-4. **`qwen3_5.py: Qwen3_5ForCausalLMBase`** — make it inherit `IsHybrid`,
-   add `is_hybrid: ClassVar[Literal[True]] = True`, and add
-   `get_mamba_state_dtype_from_config`, `get_mamba_state_shape_from_config`,
-   `get_mamba_state_copy_func` classmethods (copied from the multimodal
-   handler). Without `IsHybrid`, vllm fails with the page-size error.
-5. **`qwen3_5.py: Qwen3_5ForCausalLMBase.load_weights`** — add a
-   `WeightsMapper` that strips both `model.language_model.` and
-   `language_model.` prefixes, so the text-only handler can load the
-   nested-keyed safetensors.
-
-After commit, the patched image serves our merged model cleanly.
-
-### Merged config edits
-- `architectures`: `[Qwen3_5ForConditionalGeneration]` → `[Qwen3_5ForCausalLM]`
-- `rope_parameters`: strip `mrope_interleaved` and `mrope_section` (the
-  merge script saved them from the multimodal class; vllm asserts M-RoPE
-  is not implemented for text-only)
-- Drop `dtype` field (vllm uses `--dtype`)
-
-These edits are scripted at `scripts/patch_merged_config.py` and
-`scripts/patch_vllm_docker.py` — idempotent.
-
-### Eval pilot (pipeline verification)
-
-`.venv/bin/python eval/tbench_eval.py --model-server http://134.199.193.235:8000 \
-   --model-name le-gros-chaton --label le-gros-chaton-16k --adapter merged \
-   --tasks fix-git --attempts 1`
-
-Result: end-to-end pipeline works. Harbor sandbox → tb_agent loop → vLLM
-completions → verifier → results JSONL. 25-turn trial completed in 151s
-with the model running tool-calling actions and recovering from at least
-one `LOOP detected` correction. Full 5×5 TB-2.0 results are in devlog 018.
-
-## Numbers
-
-| Step                    | Time     | Cost     |
-|-------------------------|----------|----------|
-| SSH key + box setup     | ~5 min   | 0 GPU    |
-| ROCm stack              | ~2 min   | 0 GPU    |
-| Model download (17.9GB) | ~1 min   | 0 GPU    |
-| vLLM serve cold start   | ~90s     | GPU now  |
-| Pilot (1 task)          | 151s     | GPU live |
-
-GPU hours used: negligible so far. vLLM consumes about 18 GB VRAM
-(`--max-model-len 32768`, single GPU). Idle power draw is modest.
-
-## What's next
-
-1. **Full 5×5 pilot** — full TB-2.0 baseline (5 tasks × 5 attempts).
-2. **RLVR** — diversity + novelty reward on the 19 bug templates.
-3. **Conditional tool-call repair model** — only if `eval_toolcalls.py`
-   accuracy post-RLVR ≤95%.
-
-## Files added/changed
-
-- `scripts/patch_vllm_docker.py` (new) — builds `vllm-rocm-patched:latest`
-  from `rocm/vllm-dev:nightly_main_20260211` with the 5 patches applied.
-- `scripts/patch_merged_config.py` (rewritten) — strips M-RoPE + sets
-  `Qwen3_5ForCausalLM` architecture (previously renamed in the wrong
-  direction).
-- `~/.ssh/config` — updated `Host mi300x` HostName to `134.199.193.235`.
-
-## Lessons
-
-- The Qwen3.5 hybrid model is multimodal-class-by-default in vllm 0.16rc2
-  and in `AutoModelForCausalLM.from_pretrained` (which loads the multimodal
-  Qwen3.5 class). Either of these will write nested safetensors keys
-  (`model.language_model.X`) and M-RoPE config. Both need to be undone for
-  text-only serving.
-- The pip `vllm` 0.27.1 wheel is CUDA-only — it has `_C_stable_libtorch`
-  but no `_rocm_C`. Don't waste time on the pip wheel for ROCm.
-- For hybrid models in vllm 0.16rc2, `IsHybrid` is required even on
-  text-only handler classes or KV-cache layout fails.
-- fail2ban on the box rate-limits SSH after a burst of probe calls. Wait
-  30s between SSH commands when iterating.
----
-
-## Done — shipped on Hugging Face
-
-Training is done. The merged model (base Qwen3.5-9B + Fable5 + 16K
-trajectory SFT) is live at
-**[mateo0093/le-gros-chaton](https://huggingface.co/mateo0093/le-gros-chaton)**,
-public, Apache-2.0.
-
-Terminal-Bench 2.0 5×5 pilot: 3/25 = 12% (5 tasks × 5 attempts each).
-fix-git 3/5 was the only task the model handled reliably. Everything
-else needs better trajectory data to teach — that's the obvious next
-step if anyone picks this up.
-
-The merged model files were copied from
-`mateo0093/le-gros-chaton-qwen-merged-16k` to the new public repo
-server-side (HF `api.copy_files`), so nothing had to sit on local
-disk. The README card is on the repo with YAML front-matter, license,
-base model tag, benchmark table, and a citation block.
-
-RLVR step-10 adapter is at `mateo0093/le-gros-chaton-qwen-rlvr-step10`
-for the record. The novelty bonus made every rollout score ~1.0-1.3
-with low variance, so GRPO advantages were basically zero and the
-loss stayed near 0. Not merged into the release.
-
-GPU used: ~12h of the 50h budget. vLLM patches and the eval harness
-changes are in the repo (`scripts/patch_vllm_docker.py`,
-`scripts/patch_merged_config.py`, `eval/tb_agent.py` system-prompt
-strengthening).
+Couple things worth remembering: the Qwen3.5 hybrid model is
+multimodal-by-default in both vllm and transformers, and that gives
+you nested safetensors keys and M-RoPE config that you have to undo
+for text-only serving. The pip vllm wheel is CUDA-only so don't waste
+time on it for ROCm, use the docker. fail2ban on the box rate-limits
+SSH so wait 30s between commands when you're iterating.
