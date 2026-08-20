@@ -4,6 +4,11 @@ All notable changes to Le Gros Chaton are documented here.
 
 ## [Unreleased] — 2024-07
 
+### Added — Live review page
+- **`docs/index.html`** — GitHub Pages chat box (single-file static page)
+  backed by a Q4 (W4A16) quantized vLLM build of the merged model on an
+  MI300X, exposed publicly through a Cloudflare quick tunnel.
+
 ### Added (Qwen fine-tuning adaptation — 5 new files)
 - **`finetune_qwen.py`** — QLoRA + self-play data generation + GRPO training for
   Qwen models. Supports 4-bit quantization, LoRA adapters, group-relative policy

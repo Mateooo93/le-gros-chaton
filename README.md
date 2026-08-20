@@ -2,6 +2,19 @@
 
 **🐱 A 9B coding agent built on Qwen3.5-9B.** 25% on Terminal-Bench 2.0.
 > 🤗 Model: <https://huggingface.co/mateo0093/le-gros-chaton>
+
+## Try it live
+
+> 💬 Live demo: <https://mateooo93.github.io/le-gros-chaton/>
+
+A simple chat box backed by a **Q4 (W4A16)** quantized build of the merged
+model, served with vLLM 0.27.1 on an MI300X through a Cloudflare tunnel.
+No API key needed — the page talks straight to the GPU box.
+
+The page is `docs/index.html`, a single static HTML file. If the backend
+tunnel is ever restarted, update the `API_URL` constant at the top of its
+inline script and re-push.
+
 Le Gros Chaton is a tool-calling agent for the terminal. It plans, edits
 files, runs commands, and finishes when the task verifier passes. It is
 the result of stacking three LoRA fine-tunes on top of Qwen3.5-9B, then
