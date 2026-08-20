@@ -1,10 +1,7 @@
 # Le Gros Chaton
 
 **🐱 A 9B coding agent built on Qwen3.5-9B.** 25% on Terminal-Bench 2.0.
-
-> 📖 Live site: <https://mateooo93.github.io/le-gros-chaton/>
 > 🤗 Model: <https://huggingface.co/mateo0093/le-gros-chaton>
-
 Le Gros Chaton is a tool-calling agent for the terminal. It plans, edits
 files, runs commands, and finishes when the task verifier passes. It is
 the result of stacking three LoRA fine-tunes on top of Qwen3.5-9B, then
@@ -88,18 +85,9 @@ The harness works on any OpenAI-compatible server.
 ├── eval/
 │   ├── tb_agent.py     # Harbor agent (the harness)
 │   └── tbench_eval.py  # Harbor runner (5×5, leaderboard protocol)
-├── docs/
-│   └── index.html      # GitHub Pages site (auto-deployed)
-├── devlog/             # Build journal
 ├── scripts/            # patch_vllm_docker.py, patch_merged_config.py
-├── .github/workflows/
-│   └── pages.yml       # GitHub Pages deploy
+├── devlog/             # Build journal
 └── benchmark_results.jsonl
-```
-
-## License
-
-Apache-2.0 (inherited from Qwen3.5-9B base model). The LoRA adapters are
 also Apache-2.0.
 
 ## Citation

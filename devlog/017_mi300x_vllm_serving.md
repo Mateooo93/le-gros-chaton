@@ -136,3 +136,32 @@ GPU hours used: negligible so far. vLLM consumes about 18 GB VRAM
   text-only handler classes or KV-cache layout fails.
 - fail2ban on the box rate-limits SSH after a burst of probe calls. Wait
   30s between SSH commands when iterating.
+---
+
+## Done — shipped on Hugging Face
+
+Training is done. The merged model (base Qwen3.5-9B + Fable5 + 16K
+trajectory SFT) is live at
+**[mateo0093/le-gros-chaton](https://huggingface.co/mateo0093/le-gros-chaton)**,
+public, Apache-2.0.
+
+Terminal-Bench 2.0 5×5 pilot: 3/25 = 12% (5 tasks × 5 attempts each).
+fix-git 3/5 was the only task the model handled reliably. Everything
+else needs better trajectory data to teach — that's the obvious next
+step if anyone picks this up.
+
+The merged model files were copied from
+`mateo0093/le-gros-chaton-qwen-merged-16k` to the new public repo
+server-side (HF `api.copy_files`), so nothing had to sit on local
+disk. The README card is on the repo with YAML front-matter, license,
+base model tag, benchmark table, and a citation block.
+
+RLVR step-10 adapter is at `mateo0093/le-gros-chaton-qwen-rlvr-step10`
+for the record. The novelty bonus made every rollout score ~1.0-1.3
+with low variance, so GRPO advantages were basically zero and the
+loss stayed near 0. Not merged into the release.
+
+GPU used: ~12h of the 50h budget. vLLM patches and the eval harness
+changes are in the repo (`scripts/patch_vllm_docker.py`,
+`scripts/patch_merged_config.py`, `eval/tb_agent.py` system-prompt
+strengthening).
