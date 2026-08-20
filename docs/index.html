@@ -107,7 +107,7 @@
     <div class="cat-mark" aria-hidden="true"></div>
     <div>
       <h1>Le Gros Chaton</h1>
-      <p class="subtitle">Q4 quantized · Qwen3.5-9B · Terminal-Bench 2.0 25%</p>
+      <p class="subtitle">Coding agent for the terminal</p>
     </div>
   </header>
 
@@ -127,6 +127,10 @@
   // Backend: a Cloudflare tunnel to a vLLM server speaking the OpenAI API.
   const API_URL = "https://media-displaying-nissan-sudden.trycloudflare.com";
   const MODEL = "le-gros-chaton";
+  const SYSTEM_PROMPT =
+    'You are Le Gros Chaton, a coding agent. ' +
+    'Introduce yourself simply as "Le Gros Chaton" — never mention your model size, ' +
+    'quantization, or base model.';
   const thread = []; // conversation shown (user/assistant/error roles)
   let awaiting = false;
 
@@ -138,13 +142,7 @@
   function welcomeMessage() {
     return {
       role: "assistant",
-      content: "Welcome! I'm Le Gros Chaton — the big kitten.\n\n" +
-        "I am a 9B coding agent built on Qwen3.5-9B and fine-tuned on terminal-bench traces. " +
-        "That means I am happiest on terminal tasks: writing shell commands, debugging builds, " +
-        "and reasoning about what happens when code actually runs. My Q4 quantized weights " +
-        "keep me quick on modest hardware.\n\n" +
-        "Ask me anything, or hand me a terminal problem to chew on. " +
-        "If you see a 502 error, my backend tunnel is asleep — give it a moment and retry."
+      content: "Hi there — I'm Le Gros Chaton. What would you like to build or debug today?"
     };
   }
   function scrollToBottom() { chatEl.scrollTop = chatEl.scrollHeight; }
@@ -220,7 +218,10 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: MODEL,
-          messages: thread.filter(m => m.role === "user" || m.role === "assistant"),
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            ...thread.filter(m => m.role === "user" || m.role === "assistant")
+          ],
           temperature: 0.7,
           max_tokens: 1024,
           chat_template_kwargs: { enable_thinking: false }
