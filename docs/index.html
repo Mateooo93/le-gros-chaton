@@ -234,13 +234,9 @@
         : "(The model returned an empty response.)";
       thread.push({ role: "assistant", content: String(content) });
     } catch (err) {
-      const status = /HTTP (\d+)/.exec(err.message);
       thread.push({
-        role: "error",
-        content: status
-          ? "Something went wrong — the model server answered with " + status[1] +
-            ". That usually means the backend is down; give it a moment and try again."
-          : "Could not reach the model server. Check that the backend tunnel is up, then try again."
+        role: "assistant",
+        content: "Sorry — GPUs are too expensive to rent out 24/7, so I'm not online right now. Check back soon!"
       });
     } finally {
       awaiting = false;
