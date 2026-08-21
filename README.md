@@ -26,7 +26,7 @@ vllm serve mateo0093/le-gros-chaton \
   --max-model-len 32768
 ```
 
-Or with `transformers` directly:
+you can also use it with transformers directly:
 
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -39,7 +39,7 @@ model = AutoModelForCausalLM.from_pretrained(
 tok = AutoTokenizer.from_pretrained("mateo0093/le-gros-chaton")
 ```
 
-## Benchmark — Terminal-Bench 2.0
+## Benchmark , Terminal-Bench 2.0
 
 5 tasks × 5 attempts each (leaderboard protocol):
 
@@ -52,4 +52,4 @@ tok = AutoTokenizer.from_pretrained("mateo0093/le-gros-chaton")
 | count-dataset-tokens | 0/5 |
 | **Total** | **6/25 = 25%** |
 
-25% is a good score for a 9b model but the model still ma
+25% is a good score for a 9b model but the model still not the greatest at tool call formatting, but it's a lesson learned for next time!
